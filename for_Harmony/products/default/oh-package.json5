@@ -1,0 +1,12 @@
+{
+  "name": "default",
+  "version": "1.0.0",
+  "description": "YoLightTransfer - File Transfer Application",
+  "main": "Index.ets",
+  "author": "example",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@ohos/common": "file:../../common",
+    "@ohos/filetransfer": "file:../../features/fileTransfer"
+  }
+}

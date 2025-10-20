@@ -1,0 +1,10 @@
+{
+  "module": {
+    "name": "adaptiveLayout",
+    "type": "har",
+    "deviceTypes": [
+      "phone",
+      "tablet"
+    ]
+  }
+}

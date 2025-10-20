@@ -1,0 +1,17 @@
+{
+  "module": {
+    "name": "filetransfer",
+    "type": "har",
+    "description": "$string:filetransfer_desc",
+    "mainElement": "FileTransferMain",
+    "deviceTypes": [
+      "phone",
+      "tablet",
+      "2in1",
+      "tv"
+    ],
+    "deliveryWithInstall": false,
+    "installationFree": false,
+    "pages": "$profile:main_pages"
+  }
+}
