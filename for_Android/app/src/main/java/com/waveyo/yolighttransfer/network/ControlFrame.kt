@@ -36,10 +36,6 @@ data class ControlFrame(
         fun createPong(transferId: String = ""): ControlFrame = ControlFrame("PONG", transferId)
         fun createAck(transferId: String, originalOp: String): ControlFrame = 
             ControlFrame("ACK", transferId, originalOp)
-        fun createPause(transferId: String, progress: Long? = null): ControlFrame = 
-            ControlFrame("PAUSE", transferId, progress)
-        fun createResume(transferId: String, progress: Long? = null): ControlFrame = 
-            ControlFrame("RESUME", transferId, progress)
         fun createCancel(transferId: String, reason: String? = null): ControlFrame = 
             ControlFrame("CANCEL", transferId, reason)
         fun createProgress(transferId: String, transferred: Long, total: Long): ControlFrame = 

@@ -29,11 +29,6 @@ interface TransferListener {
      */
     fun onTransferFailed(fileName: String, errorMessage: String)
     
-    /**
-     * 传输暂停
-     * @param fileName 文件名
-     */
-    fun onTransferPaused(fileName: String)
     
     /**
      * 传输取消
@@ -56,7 +51,6 @@ abstract class AbstractTransferListener : TransferListener {
     override fun onProgressUpdated(fileName: String, transferredBytes: Long, fileSize: Long) {}
     override fun onTransferCompleted(fileName: String) {}
     override fun onTransferFailed(fileName: String, errorMessage: String) {}
-    override fun onTransferPaused(fileName: String) {}
     override fun onTransferCancelled(fileName: String) {}
     override fun onTransferStarted(transferInfo: FileTransferInfo) {}
 }
@@ -81,9 +75,6 @@ class ProgressManagerTransferListener(
         progressManager.markTransferFailed(fileName, errorMessage)
     }
     
-    override fun onTransferPaused(fileName: String) {
-        progressManager.markTransferPaused(fileName)
-    }
     
     override fun onTransferCancelled(fileName: String) {
         progressManager.markTransferCancelled(fileName)
@@ -114,9 +105,6 @@ class TransferQueueManagerListener(
         transferQueueManager.markTransferFailed(fileName, errorMessage)
     }
     
-    override fun onTransferPaused(fileName: String) {
-        // 传输队列管理器已经有暂停状态管理
-    }
     
     override fun onTransferCancelled(fileName: String) {
         transferQueueManager.cancelTransfer(fileName)
@@ -155,9 +143,6 @@ class CompositeTransferListener : TransferListener {
         listeners.forEach { it.onTransferFailed(fileName, errorMessage) }
     }
     
-    override fun onTransferPaused(fileName: String) {
-        listeners.forEach { it.onTransferPaused(fileName) }
-    }
     
     override fun onTransferCancelled(fileName: String) {
         listeners.forEach { it.onTransferCancelled(fileName) }

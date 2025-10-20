@@ -286,16 +286,6 @@ fun HomeScreen(
                                 progress = transfer.progress.toFloat(),
                                 filePath = transfer.filePath,
                                 transferStatus = transfer.status.name,
-                                onPause = {
-                                    if (transfer.status == com.waveyo.yolighttransfer.model.TransferStatus.TRANSFERRING) {
-                                        appManager.pauseTransfer(transfer.fileName)
-                                    }
-                                },
-                                onResume = {
-                                    if (transfer.status == com.waveyo.yolighttransfer.model.TransferStatus.PAUSED) {
-                                        appManager.resumeTransfer(transfer.fileName)
-                                    }
-                                },
                                 onCancel = {
                                     if (transfer.status != com.waveyo.yolighttransfer.model.TransferStatus.COMPLETED && 
                                         transfer.status != com.waveyo.yolighttransfer.model.TransferStatus.CANCELLED) {

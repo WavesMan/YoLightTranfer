@@ -53,9 +53,6 @@ class TransferExecutor(
                         activeClients.remove(fileName)
                     }
                     
-                    override fun onTransferPaused(fileName: String) {
-                        // 传输队列管理器已经有暂停状态管理
-                    }
                     
                     override fun onTransferCancelled(fileName: String) {
                         // 传输队列管理器已经有取消状态管理
@@ -78,45 +75,6 @@ class TransferExecutor(
         }
     }
     
-    /**
-     * 暂停传输任务
-     */
-    fun pauseTransfer(fileName: String): Boolean {
-        val client = activeClients[fileName]
-        return if (client != null) {
-            val result = client.pauseTransfer(fileName)
-            if (result) {
-                Log.d(TAG, "成功暂停传输任务: $fileName")
-            } else {
-                Log.w(TAG, "暂停传输任务失败: $fileName")
-            }
-            result
-        } else {
-            Log.w(TAG, "找不到活跃的传输客户端: $fileName")
-            false
-        }
-    }
-    
-    /**
-     * 继续传输任务
-     */
-    fun resumeTransfer(fileName: String): Boolean {
-        val client = activeClients[fileName]
-        val transferInfo = transferQueueManager.getTransfer(fileName)
-        return if (client != null && transferInfo != null && transferInfo.status == com.waveyo.yolighttransfer.model.TransferStatus.PAUSED) {
-            val fileUri = Uri.parse(transferInfo.filePath)
-            val result = client.resumeTransfer(fileName, fileUri, transferInfo.targetDevice)
-            if (result) {
-                Log.d(TAG, "成功继续传输任务: $fileName")
-            } else {
-                Log.w(TAG, "继续传输任务失败: $fileName")
-            }
-            result
-        } else {
-            Log.w(TAG, "找不到活跃的传输客户端或传输信息: $fileName, client: $client, transferInfo: $transferInfo, status: ${transferInfo?.status}")
-            false
-        }
-    }
     
     /**
      * 取消传输任务

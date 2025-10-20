@@ -39,66 +39,6 @@ class TransferQueueManager {
     fun setTransferExecutor(executor: TransferExecutor) {
         this.transferExecutor = executor
     }
-
-    /**
-     * 设置进度管理器（用于同步进度）
-     */
-    fun setProgressManager(progressManager: ProgressManager) {
-        // 添加队列监听器来同步进度
-        addQueueListener(object : TransferQueueListener {
-            override fun onTransferAdded(transferInfo: FileTransferInfo) {
-                progressManager.registerTransfer(transferInfo)
-            }
-
-            override fun onTransferRemoved(transferInfo: FileTransferInfo) {
-                progressManager.removeTransfer(transferInfo.fileName)
-            }
-
-            override fun onTransferStarted(transferInfo: FileTransferInfo) {
-                // 传输开始时确保在进度管理器中注册
-                progressManager.registerTransfer(transferInfo)
-            }
-
-            override fun onTransferProgress(transferInfo: FileTransferInfo) {
-                // 进度更新时同步到进度管理器
-                progressManager.updateProgress(
-                    transferInfo.fileName,
-                    transferInfo.transferredBytes,
-                    transferInfo.fileSize
-                )
-            }
-
-            override fun onTransferPaused(transferInfo: FileTransferInfo) {
-                progressManager.markTransferPaused(transferInfo.fileName)
-            }
-
-            override fun onTransferResumed(transferInfo: FileTransferInfo) {
-                // 恢复传输时确保在进度管理器中注册
-                progressManager.registerTransfer(transferInfo)
-            }
-
-            override fun onTransferCancelled(transferInfo: FileTransferInfo) {
-                progressManager.markTransferCancelled(transferInfo.fileName)
-            }
-
-            override fun onTransferRetried(transferInfo: FileTransferInfo) {
-                // 重试传输时确保在进度管理器中注册
-                progressManager.registerTransfer(transferInfo)
-            }
-
-            override fun onTransferCompleted(transferInfo: FileTransferInfo) {
-                progressManager.markTransferCompleted(transferInfo.fileName)
-            }
-
-            override fun onTransferFailed(transferInfo: FileTransferInfo, errorMessage: String) {
-                progressManager.markTransferFailed(transferInfo.fileName, errorMessage)
-            }
-
-            override fun onQueueCleared() {
-                progressManager.clearAllTransfers()
-            }
-        })
-    }
     
     /**
      * 添加传输任务到队列
@@ -154,58 +94,6 @@ class TransferQueueManager {
                 // 处理队列，启动新的传输
                 processQueue()
             }
-        }
-    }
-    
-    /**
-     * 暂停传输任务
-     */
-    fun pauseTransfer(fileName: String): Boolean {
-        synchronized(this) {
-            val transfer = _transferQueue.value.find { it.fileName == fileName }
-            if (transfer != null && transfer.status == TransferStatus.TRANSFERRING) {
-                transfer.status = TransferStatus.PAUSED
-                activeTransfers.remove(fileName)
-                
-                // 调用传输执行器暂停传输
-                transferExecutor?.pauseTransfer(fileName)
-                
-                Log.d(TAG, "暂停传输任务: $fileName")
-                
-                // 通知监听器
-                queueListeners.forEach { it.onTransferPaused(transfer) }
-                
-                // 处理队列，启动新的传输
-                processQueue()
-                return true
-            }
-            return false
-        }
-    }
-    
-    /**
-     * 继续传输任务
-     */
-    fun resumeTransfer(fileName: String): Boolean {
-        synchronized(this) {
-            val transfer = _transferQueue.value.find { it.fileName == fileName }
-            if (transfer != null && transfer.status == TransferStatus.PAUSED) {
-                transfer.status = TransferStatus.TRANSFERRING
-                
-                // 添加到活跃传输
-                activeTransfers[fileName] = transfer
-                
-                // 调用传输执行器继续传输
-                transferExecutor?.resumeTransfer(fileName)
-                
-                Log.d(TAG, "继续传输任务: $fileName, 已传输: ${transfer.transferredBytes}/${transfer.fileSize} bytes")
-                
-                // 通知监听器
-                queueListeners.forEach { it.onTransferResumed(transfer) }
-                
-                return true
-            }
-            return false
         }
     }
     
@@ -435,8 +323,6 @@ interface TransferQueueListener {
     fun onTransferRemoved(transferInfo: FileTransferInfo)
     fun onTransferStarted(transferInfo: FileTransferInfo)
     fun onTransferProgress(transferInfo: FileTransferInfo)
-    fun onTransferPaused(transferInfo: FileTransferInfo)
-    fun onTransferResumed(transferInfo: FileTransferInfo)
     fun onTransferCancelled(transferInfo: FileTransferInfo)
     fun onTransferRetried(transferInfo: FileTransferInfo)
     fun onTransferCompleted(transferInfo: FileTransferInfo)

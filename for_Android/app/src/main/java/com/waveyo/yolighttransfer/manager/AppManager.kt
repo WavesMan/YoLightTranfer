@@ -83,8 +83,6 @@ class AppManager(private val context: Context) {
         // 设置传输执行器
         transferQueueManager.setTransferExecutor(transferExecutor)
         
-        // 设置进度管理器同步
-        transferQueueManager.setProgressManager(progressManager)
         
         // 设置设备发现回调
         deviceDiscoveryManager.onDeviceDiscovered = { device ->
@@ -154,10 +152,6 @@ class AppManager(private val context: Context) {
                     }
                 }
                 
-                override fun onTransferPaused(fileName: String) {
-                    // 传输队列管理器已经有暂停状态管理
-                    progressManager.markTransferPaused(fileName)
-                }
                 
                 override fun onTransferCancelled(fileName: String) {
                     // 传输队列管理器已经有取消状态管理
@@ -377,19 +371,6 @@ class AppManager(private val context: Context) {
         transferQueueManager.addTransfer(transferInfo)
     }
     
-    /**
-     * 暂停传输任务
-     */
-    fun pauseTransfer(fileName: String): Boolean {
-        return transferQueueManager.pauseTransfer(fileName)
-    }
-    
-    /**
-     * 继续传输任务
-     */
-    fun resumeTransfer(fileName: String): Boolean {
-        return transferQueueManager.resumeTransfer(fileName)
-    }
     
     /**
      * 取消传输任务

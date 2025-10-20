@@ -28,7 +28,6 @@ class TCPClient(private val context: Context) {
         private const val HEARTBEAT_INTERVAL_MS = 5000L // 心跳间隔（5秒，符合协议建议）
         private const val CONTROL_FRAME_RETRY_COUNT = 3 // 控制帧重试次数
         private const val CONTROL_FRAME_RETRY_DELAY_MS = 1000L // 控制帧重试延迟
-        private const val CONTROL_PORT_OFFSET = 1000 // 控制端口偏移量，数据端口+1000
     }
     
     // 传输监听器
@@ -142,13 +141,6 @@ class TCPClient(private val context: Context) {
                 break
                 
             } catch (e: Exception) {
-                // 检查是否是暂停导致的取消
-                if (e is CancellationException && e.message == "用户暂停传输") {
-                    Log.d(TAG, "传输任务被暂停: ${e.message}")
-                    // 暂停状态已经在pauseTransfer方法中设置，这里不需要额外处理
-                    break
-                }
-                
                 // 检查是否是网络连接错误
                 if (isNetworkError(e) && retryCount < MAX_RETRY_COUNT) {
                     retryCount++
@@ -271,13 +263,6 @@ class TCPClient(private val context: Context) {
      * 处理传输异常
      */
     private fun handleTransferException(e: Exception, fileUri: Uri, context: String) {
-        // 检查是否是暂停导致的取消
-        if (e is CancellationException && e.message == "用户暂停传输") {
-            Log.d(TAG, "传输任务被暂停: ${e.message}")
-            // 暂停状态已经在pauseTransfer方法中设置，这里不需要额外处理
-            return
-        }
-        
         Log.e(TAG, "$context: ${e.message}")
         
         // 通知传输失败
@@ -357,54 +342,6 @@ class TCPClient(private val context: Context) {
     }
     
     /**
-     * 暂停传输
-     */
-    fun pauseTransfer(fileName: String): Boolean {
-        val job = activeJobs[fileName]
-        val transferInfo = activeTransfers[fileName]
-        
-        return if (job != null && transferInfo != null && transferInfo.status == com.waveyo.yolighttransfer.model.TransferStatus.TRANSFERRING) {
-            // 暂停传输 - 取消当前任务但保留传输进度
-            job.cancel("用户暂停传输")
-            transferInfo.status = com.waveyo.yolighttransfer.model.TransferStatus.PAUSED
-            
-            // 向接收端发送暂停通知（带重试机制）
-            sendPauseNotification(transferInfo)
-            
-            Log.d(TAG, "暂停传输任务: $fileName, 已传输: ${transferInfo.transferredBytes}/${transferInfo.fileSize} bytes")
-            true
-        } else {
-            Log.w(TAG, "找不到活跃的传输任务: $fileName, job: $job, transferInfo: $transferInfo, status: ${transferInfo?.status}")
-            false
-        }
-    }
-    
-    /**
-     * 继续传输任务
-     */
-    fun resumeTransfer(fileName: String, fileUri: Uri, targetDevice: DeviceInfo): Boolean {
-        val transferInfo = activeTransfers[fileName]
-        return if (transferInfo != null && transferInfo.status == com.waveyo.yolighttransfer.model.TransferStatus.PAUSED) {
-            // 先通知对端恢复
-            transferScope.launch {
-                val frame = com.waveyo.yolighttransfer.network.ControlFrame.createResume(
-                    transferInfo.fileName,
-                    transferInfo.transferredBytes
-                )
-                sendControlFrameWithRetry(targetDevice, frame, "RESUME")
-            }
-            // 从暂停位置继续传输
-            sendFile(fileUri, targetDevice, transferInfo.transferredBytes)
-            transferInfo.status = com.waveyo.yolighttransfer.model.TransferStatus.TRANSFERRING
-            Log.d(TAG, "继续传输任务: $fileName, 从位置: ${transferInfo.transferredBytes}/${transferInfo.fileSize} bytes")
-            true
-        } else {
-            Log.w(TAG, "无法继续传输任务: $fileName, transferInfo: $transferInfo, status: ${transferInfo?.status}")
-            false
-        }
-    }
-    
-    /**
      * 取消传输
      */
     fun cancelTransfer(fileName: String): Boolean {
@@ -441,21 +378,7 @@ class TCPClient(private val context: Context) {
     }
     
     /**
-     * 向接收端发送暂停通知
-     */
-    private fun sendPauseNotification(transferInfo: FileTransferInfo) {
-        transferScope.launch {
-            val frame = com.waveyo.yolighttransfer.network.ControlFrame.createPause(
-                transferInfo.fileName,
-                transferInfo.transferredBytes
-            )
-            sendControlFrameWithRetry(transferInfo.targetDevice, frame, "PAUSE")
-        }
-    }
-    
-    /**
      * 发送控制帧（短连接 JSON + UTF）
-     * 使用控制端口（数据端口 + CONTROL_PORT_OFFSET）
      */
     private suspend fun sendControlFrame(targetDevice: com.waveyo.yolighttransfer.model.DeviceInfo, frame: com.waveyo.yolighttransfer.network.ControlFrame, waitAck: Boolean = true): Boolean {
         return try {
@@ -464,11 +387,8 @@ class TCPClient(private val context: Context) {
                 var inputStream: DataInputStream? = null
                 var outputStream: DataOutputStream? = null
                 try {
-                    // 计算控制端口
-                    val controlPort = targetDevice.tcpPort + CONTROL_PORT_OFFSET
-                    
                     socket = Socket().apply { soTimeout = 5000 }
-                    socket.connect(java.net.InetSocketAddress(targetDevice.ipAddress, controlPort), 5000)
+                    socket.connect(java.net.InetSocketAddress(targetDevice.ipAddress, targetDevice.tcpPort), 5000)
                     inputStream = DataInputStream(socket.getInputStream())
                     outputStream = DataOutputStream(socket.getOutputStream())
 
