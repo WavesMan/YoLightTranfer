@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import android.util.Log
 
 /**
  * 传输项组件 - 现代化UI设计，支持传输控制
@@ -158,7 +159,10 @@ fun TransferItem(
                 when {
                     transferStatus == "TRANSFERRING" && onPause != null -> {
                         OutlinedButton(
-                            onClick = onPause,
+                            onClick = {
+                                Log.d("TransferItem", "点击暂停按钮: $name")
+                                onPause()
+                            },
                             modifier = Modifier.weight(1f)
                         ) {
                             Icon(
@@ -172,7 +176,10 @@ fun TransferItem(
                     }
                     transferStatus == "PAUSED" && onResume != null -> {
                         OutlinedButton(
-                            onClick = onResume,
+                            onClick = {
+                                Log.d("TransferItem", "点击继续按钮: $name")
+                                onResume()
+                            },
                             modifier = Modifier.weight(1f)
                         ) {
                             Icon(

@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -62,7 +63,7 @@ fun HomeScreen(
     
     // 状态管理
     var onlineDevices by rememberSaveable { mutableStateOf(emptyList<DeviceInfo>()) }
-    var activeTransfers by rememberSaveable { mutableStateOf(emptyList<FileTransferInfo>()) }
+    val allTransfersState = appManager.getProgressManager().allTransfers.collectAsState()
     var selectedFiles by rememberSaveable { mutableStateOf<List<Uri>>(emptyList()) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var selectedDevice by rememberSaveable { mutableStateOf<DeviceInfo?>(null) }
@@ -91,53 +92,6 @@ fun HomeScreen(
             onlineDevices = appManager.getOnlineDevices()
         }
         
-        // 设置传输队列监听器
-        appManager.getTransferQueueManager().addQueueListener(object : com.waveyo.yolighttransfer.manager.TransferQueueListener {
-            override fun onTransferAdded(transferInfo: FileTransferInfo) {
-                activeTransfers = appManager.getActiveTransfers()
-            }
-            
-            override fun onTransferRemoved(transferInfo: FileTransferInfo) {
-                activeTransfers = appManager.getActiveTransfers()
-            }
-            
-            override fun onTransferStarted(transferInfo: FileTransferInfo) {
-                activeTransfers = appManager.getActiveTransfers()
-            }
-            
-            override fun onTransferProgress(transferInfo: FileTransferInfo) {
-                activeTransfers = appManager.getActiveTransfers()
-            }
-            
-            override fun onTransferPaused(transferInfo: FileTransferInfo) {
-                activeTransfers = appManager.getActiveTransfers()
-            }
-            
-            override fun onTransferResumed(transferInfo: FileTransferInfo) {
-                activeTransfers = appManager.getActiveTransfers()
-            }
-            
-            override fun onTransferCancelled(transferInfo: FileTransferInfo) {
-                activeTransfers = appManager.getActiveTransfers()
-            }
-            
-            override fun onTransferRetried(transferInfo: FileTransferInfo) {
-                activeTransfers = appManager.getActiveTransfers()
-            }
-            
-            override fun onTransferCompleted(transferInfo: FileTransferInfo) {
-                activeTransfers = appManager.getActiveTransfers()
-            }
-            
-            override fun onTransferFailed(transferInfo: FileTransferInfo, errorMessage: String) {
-                activeTransfers = appManager.getActiveTransfers()
-            }
-            
-            override fun onQueueCleared() {
-                activeTransfers = appManager.getActiveTransfers()
-            }
-        })
-        
         // 设置文件接收请求回调
         appManager.onFileReceiveRequest = { senderDeviceName, fileName, fileSize, callback ->
             fileReceiveInfo = Triple(senderDeviceName, fileName, fileSize)
@@ -147,13 +101,11 @@ fun HomeScreen(
         
         // 初始加载
         onlineDevices = appManager.getOnlineDevices()
-        activeTransfers = appManager.getActiveTransfers()
         
         // 定期更新设备列表
         while (true) {
             delay(2000)
             onlineDevices = appManager.getOnlineDevices()
-            activeTransfers = appManager.getActiveTransfers()
         }
     }
     
@@ -186,19 +138,19 @@ fun HomeScreen(
                 }
             }
             
-            item {
-                // 搜索框
-                Column(Modifier.padding(horizontal = 16.dp)) {
-                    Text("设备发现", fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("搜索设备...") }
-                    )
-                }
-            }
+            // item {
+            //     // 搜索框
+            //     Column(Modifier.padding(horizontal = 16.dp)) {
+            //         Text("设备发现", fontWeight = FontWeight.SemiBold)
+            //         Spacer(Modifier.height(8.dp))
+            //         OutlinedTextField(
+            //             value = searchQuery,
+            //             onValueChange = { searchQuery = it },
+            //             modifier = Modifier.fillMaxWidth(),
+            //             label = { Text("搜索设备...") }
+            //         )
+            //     }
+            // }
             
             item {
                 // 设备选择区域
@@ -315,16 +267,16 @@ fun HomeScreen(
                 }
             }
             
-            if (activeTransfers.isNotEmpty()) {
+            if (allTransfersState.value.isNotEmpty()) {
                 item {
                     // 传输任务队列
                     SectionCard(title = "传输任务队列") {
-                        activeTransfers.forEach { transfer ->
+                        allTransfersState.value.forEach { transfer ->
                             TransferItem(
                                 name = transfer.fileName,
                                 progressText = "${(transfer.progress * 100).toInt()}% · ${formatBytes(transfer.transferredBytes)}/${formatBytes(transfer.fileSize)}",
                                 status = when (transfer.status) {
-                                    com.waveyo.yolighttransfer.model.TransferStatus.TRANSFERRING -> "传输中 · 剩余约${transfer.estimatedTimeRemaining / 1000}秒"
+                                    com.waveyo.yolighttransfer.model.TransferStatus.TRANSFERRING -> "传输中"
                                     com.waveyo.yolighttransfer.model.TransferStatus.COMPLETED -> "已完成"
                                     com.waveyo.yolighttransfer.model.TransferStatus.FAILED -> "失败: ${transfer.errorMessage}"
                                     com.waveyo.yolighttransfer.model.TransferStatus.PAUSED -> "已暂停"

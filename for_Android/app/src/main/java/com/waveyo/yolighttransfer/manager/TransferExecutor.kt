@@ -37,23 +37,33 @@ class TransferExecutor(
                 val tcpClient = TCPClient(context)
                 activeClients[transferInfo.fileName] = tcpClient
                 
-                // 设置传输回调
-                tcpClient.onTransferProgress = { progressInfo ->
-                    transferQueueManager.updateTransferProgress(
-                        transferInfo.fileName,
-                        progressInfo.transferredBytes,
-                        progressInfo.fileSize
-                    )
-                }
-                
-                tcpClient.onTransferCompleted = { completedInfo ->
-                    transferQueueManager.markTransferCompleted(transferInfo.fileName)
-                    activeClients.remove(transferInfo.fileName)
-                }
-                
-                tcpClient.onTransferFailed = { failedInfo, error ->
-                    transferQueueManager.markTransferFailed(transferInfo.fileName, error)
-                    activeClients.remove(transferInfo.fileName)
+                // 设置传输监听器
+                tcpClient.transferListener = object : com.waveyo.yolighttransfer.manager.TransferListener {
+                    override fun onProgressUpdated(fileName: String, transferredBytes: Long, fileSize: Long) {
+                        transferQueueManager.updateTransferProgress(fileName, transferredBytes, fileSize)
+                    }
+                    
+                    override fun onTransferCompleted(fileName: String) {
+                        transferQueueManager.markTransferCompleted(fileName)
+                        activeClients.remove(fileName)
+                    }
+                    
+                    override fun onTransferFailed(fileName: String, errorMessage: String) {
+                        transferQueueManager.markTransferFailed(fileName, errorMessage)
+                        activeClients.remove(fileName)
+                    }
+                    
+                    override fun onTransferPaused(fileName: String) {
+                        // 传输队列管理器已经有暂停状态管理
+                    }
+                    
+                    override fun onTransferCancelled(fileName: String) {
+                        // 传输队列管理器已经有取消状态管理
+                    }
+                    
+                    override fun onTransferStarted(transferInfo: FileTransferInfo) {
+                        // 传输队列管理器已经有传输开始管理
+                    }
                 }
                 
                 // 执行实际的文件传输
@@ -74,7 +84,13 @@ class TransferExecutor(
     fun pauseTransfer(fileName: String): Boolean {
         val client = activeClients[fileName]
         return if (client != null) {
-            client.pauseTransfer(fileName)
+            val result = client.pauseTransfer(fileName)
+            if (result) {
+                Log.d(TAG, "成功暂停传输任务: $fileName")
+            } else {
+                Log.w(TAG, "暂停传输任务失败: $fileName")
+            }
+            result
         } else {
             Log.w(TAG, "找不到活跃的传输客户端: $fileName")
             false
@@ -87,11 +103,17 @@ class TransferExecutor(
     fun resumeTransfer(fileName: String): Boolean {
         val client = activeClients[fileName]
         val transferInfo = transferQueueManager.getTransfer(fileName)
-        return if (client != null && transferInfo != null) {
+        return if (client != null && transferInfo != null && transferInfo.status == com.waveyo.yolighttransfer.model.TransferStatus.PAUSED) {
             val fileUri = Uri.parse(transferInfo.filePath)
-            client.resumeTransfer(fileName, fileUri, transferInfo.targetDevice)
+            val result = client.resumeTransfer(fileName, fileUri, transferInfo.targetDevice)
+            if (result) {
+                Log.d(TAG, "成功继续传输任务: $fileName")
+            } else {
+                Log.w(TAG, "继续传输任务失败: $fileName")
+            }
+            result
         } else {
-            Log.w(TAG, "找不到活跃的传输客户端或传输信息: $fileName")
+            Log.w(TAG, "找不到活跃的传输客户端或传输信息: $fileName, client: $client, transferInfo: $transferInfo, status: ${transferInfo?.status}")
             false
         }
     }

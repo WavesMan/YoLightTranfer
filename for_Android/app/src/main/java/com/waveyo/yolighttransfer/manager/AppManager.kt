@@ -22,6 +22,7 @@ class AppManager(private val context: Context) {
     private val deviceManager = DeviceManager(context)
     private val logManager = LogManager(context)
     private val transferQueueManager = TransferQueueManager()
+    private val progressManager = ProgressManager()
     private val transferExecutor = TransferExecutor(context, transferQueueManager)
     private lateinit var deviceDiscoveryManager: com.waveyo.yolighttransfer.network.DeviceDiscoveryManager
     private val tcpServer = com.waveyo.yolighttransfer.network.TCPServer(context)
@@ -82,6 +83,9 @@ class AppManager(private val context: Context) {
         // 设置传输执行器
         transferQueueManager.setTransferExecutor(transferExecutor)
         
+        // 设置进度管理器同步
+        transferQueueManager.setProgressManager(progressManager)
+        
         // 设置设备发现回调
         deviceDiscoveryManager.onDeviceDiscovered = { device ->
             Log.d(TAG, "发现新设备: ${device.deviceName} (${device.ipAddress})")
@@ -91,28 +95,80 @@ class AppManager(private val context: Context) {
             onDeviceListUpdated?.invoke()
         }
         
-        // 设置TCP传输回调
-        tcpServer.onTransferProgress = { transferInfo ->
-            // 更新传输队列管理器中的进度
-            transferQueueManager.updateTransferProgress(
-                transferInfo.fileName,
-                transferInfo.transferredBytes,
-                transferInfo.fileSize
-            )
-            onTransferProgress?.invoke(transferInfo)
-        }
-        
-        tcpServer.onTransferCompleted = { transferInfo ->
-            // 标记传输队列管理器中的传输完成
-            transferQueueManager.markTransferCompleted(transferInfo.fileName)
-            onTransferCompleted?.invoke(transferInfo)
-        }
-        
-        tcpServer.onTransferFailed = { transferInfo, error ->
-            // 标记传输队列管理器中的传输失败
-            transferQueueManager.markTransferFailed(transferInfo.fileName, error)
-            onTransferFailed?.invoke(transferInfo, error)
-        }
+            // 设置TCP传输回调
+            tcpServer.transferListener = object : com.waveyo.yolighttransfer.manager.TransferListener {
+                override fun onProgressUpdated(fileName: String, transferredBytes: Long, fileSize: Long) {
+                    Log.d(TAG, "TCPServer传输进度回调: $fileName, 进度: $transferredBytes/$fileSize")
+                    
+                    // 检查传输是否已经在队列中，如果不在则添加
+                    val existingTransfer = transferQueueManager.getTransfer(fileName)
+                    if (existingTransfer == null) {
+                        // 传输不在队列中，创建新的传输信息并添加到队列
+                        val transferInfo = com.waveyo.yolighttransfer.model.FileTransferInfo(
+                            fileName = fileName,
+                            fileSize = fileSize,
+                            filePath = "", // 文件路径将在接收过程中设置
+                            targetDevice = DeviceInfo(deviceName = "未知设备", ipAddress = ""),
+                            transferredBytes = transferredBytes,
+                            status = com.waveyo.yolighttransfer.model.TransferStatus.TRANSFERRING
+                        )
+                        Log.d(TAG, "添加接收端传输到队列: $fileName")
+                        transferQueueManager.addTransfer(transferInfo)
+                    } else {
+                        // 传输已在队列中，更新进度
+                        Log.d(TAG, "更新接收端传输进度: $fileName, 进度: $transferredBytes/$fileSize")
+                        transferQueueManager.updateTransferProgress(fileName, transferredBytes, fileSize)
+                    }
+                    
+                    // 直接更新进度管理器以确保UI实时更新
+                    progressManager.updateProgress(fileName, transferredBytes, fileSize)
+                    
+                    // 通知UI更新进度
+                    val transferInfo = progressManager.getTransfer(fileName)
+                    if (transferInfo != null) {
+                        onTransferProgress?.invoke(transferInfo)
+                    }
+                }
+                
+                override fun onTransferCompleted(fileName: String) {
+                    // 标记传输队列管理器中的传输完成
+                    transferQueueManager.markTransferCompleted(fileName)
+                    // 标记进度管理器中的传输完成
+                    progressManager.markTransferCompleted(fileName)
+                    
+                    val transferInfo = progressManager.getTransfer(fileName)
+                    if (transferInfo != null) {
+                        onTransferCompleted?.invoke(transferInfo)
+                    }
+                }
+                
+                override fun onTransferFailed(fileName: String, errorMessage: String) {
+                    // 标记传输队列管理器中的传输失败
+                    transferQueueManager.markTransferFailed(fileName, errorMessage)
+                    // 标记进度管理器中的传输失败
+                    progressManager.markTransferFailed(fileName, errorMessage)
+                    
+                    val transferInfo = progressManager.getTransfer(fileName)
+                    if (transferInfo != null) {
+                        onTransferFailed?.invoke(transferInfo, errorMessage)
+                    }
+                }
+                
+                override fun onTransferPaused(fileName: String) {
+                    // 传输队列管理器已经有暂停状态管理
+                    progressManager.markTransferPaused(fileName)
+                }
+                
+                override fun onTransferCancelled(fileName: String) {
+                    // 传输队列管理器已经有取消状态管理
+                    progressManager.markTransferCancelled(fileName)
+                }
+                
+                override fun onTransferStarted(transferInfo: com.waveyo.yolighttransfer.model.FileTransferInfo) {
+                    // 传输队列管理器已经有传输开始管理
+                    progressManager.registerTransfer(transferInfo)
+                }
+            }
         
         // 设置文件接收请求回调
         tcpServer.onFileReceiveRequest = { senderDeviceName, fileName, fileSize, callback ->
@@ -279,8 +335,6 @@ class AppManager(private val context: Context) {
         Log.d(TAG, "网络服务已停止")
     }
     
-    // 以下方法用于解决编译错误，实际实现需要根据具体业务逻辑完善
-    
     /**
      * 获取在线设备列表
      */
@@ -296,10 +350,24 @@ class AppManager(private val context: Context) {
     }
     
     /**
+     * 获取所有传输任务（包括等待接收确认的任务）
+     */
+    fun getAllTransfers(): List<com.waveyo.yolighttransfer.model.FileTransferInfo> {
+        return transferQueueManager.getAllTransfers()
+    }
+    
+    /**
      * 获取传输队列管理器
      */
     fun getTransferQueueManager(): TransferQueueManager {
         return transferQueueManager
+    }
+
+    /**
+     * 获取进度管理器
+     */
+    fun getProgressManager(): ProgressManager {
+        return progressManager
     }
     
     /**
@@ -342,58 +410,6 @@ class AppManager(private val context: Context) {
      */
     fun clearTransferQueue() {
         transferQueueManager.clearQueue()
-    }
-    
-    /**
-     * 发送文件到设备
-     */
-    fun sendFile(fileUri: android.net.Uri, device: DeviceInfo) {
-        Log.d(TAG, "发送文件到设备: $fileUri -> ${device.deviceName}")
-        
-        // 创建传输信息并添加到队列
-        val fileInfo = getFileInfo(fileUri)
-        if (fileInfo != null) {
-            val transferInfo = com.waveyo.yolighttransfer.model.FileTransferInfo(
-                fileName = fileInfo.first,
-                fileSize = fileInfo.second,
-                filePath = fileUri.toString(),
-                targetDevice = device
-            )
-            addTransferToQueue(transferInfo)
-        }
-    }
-    
-    /**
-     * 获取文件信息
-     */
-    private fun getFileInfo(fileUri: android.net.Uri): Pair<String, Long>? {
-        return try {
-            context.contentResolver.query(fileUri, null, null, null, null)?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    val displayNameIndex = cursor.getColumnIndex("_display_name")
-                    val sizeIndex = cursor.getColumnIndex("_size")
-                    
-                    val fileName = if (displayNameIndex != -1) {
-                        cursor.getString(displayNameIndex)
-                    } else {
-                        fileUri.lastPathSegment ?: "unknown_file"
-                    }
-                    
-                    val fileSize = if (sizeIndex != -1) {
-                        cursor.getLong(sizeIndex)
-                    } else {
-                        0L
-                    }
-                    
-                    Pair(fileName, fileSize)
-                } else {
-                    null
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "获取文件信息失败: ${e.message}")
-            null
-        }
     }
     
     /**
