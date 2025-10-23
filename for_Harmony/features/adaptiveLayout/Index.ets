@@ -1,1 +1,0 @@
-export { adaptiveLayout } from './src/main/ets/pages/AdaptiveLayout';

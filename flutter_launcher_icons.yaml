@@ -1,0 +1,17 @@
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/8dea342959504f16bcd57ba34b0134d1~tplv-a9rns2rl98-image.image?rcl=20251021091015E8115DCA2C12FD699252&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1763601033&x-signature=IGk45QXqJyO1juALYRpQpqvwoPA%3D"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/8dea342959504f16bcd57ba34b0134d1~tplv-a9rns2rl98-image.image?rcl=20251021091015E8115DCA2C12FD699252&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1763601033&x-signature=IGk45QXqJyO1juALYRpQpqvwoPA%3D"
+  web:
+    generate: true
+    image_path: "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/8dea342959504f16bcd57ba34b0134d1~tplv-a9rns2rl98-image.image?rcl=20251021091015E8115DCA2C12FD699252&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1763601033&x-signature=IGk45QXqJyO1juALYRpQpqvwoPA%3D"
+    background_color: "#FFFFFF"
+    theme_color: "#6750A4"
+  windows:
+    generate: true
+    image_path: "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/8dea342959504f16bcd57ba34b0134d1~tplv-a9rns2rl98-image.image?rcl=20251021091015E8115DCA2C12FD699252&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1763601033&x-signature=IGk45QXqJyO1juALYRpQpqvwoPA%3D"
+  macos:
+    generate: true
+    image_path: "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/8dea342959504f16bcd57ba34b0134d1~tplv-a9rns2rl98-image.image?rcl=20251021091015E8115DCA2C12FD699252&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1763601033&x-signature=IGk45QXqJyO1juALYRpQpqvwoPA%3D"

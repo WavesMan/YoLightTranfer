@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YoLightTransfer - 跨平台文件传输</title>
+  <!-- Tailwind CSS v3 -->
+  <script src="https://cdn.tailwindwindcss.com"></script>
+  <!-- Font Awesome Awesome -->
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#6750A4',
+            secondary: '#625B71',
+            accent: '#7D5260',
+            success: '#4CAF50',
+            warning: '#FF9800',
+            error: '#F44336',
+            info: '#2196F3',
+            
+            // 设备类型颜色
+            windows: '#0078D4',
+            android: '#3DDC84',
+            harmonyos: '#FF0000',
+            linux: '#FCC624',
+            macos: '#000000',
+            
+            // 浅色主题
+            surface: '#FFFFFF',
+            'surface-container': '#F7F2FA',
+            'surface-container-high': '#F3EDF7',
+            'surface-container-highest': '#ECE6F0',
+            'on-surface': '#1C1B1F',
+            'on-surface-variant': '#49454F',
+            'outline': '#79747E',
+            
+            // 深色主题
+            'dark-surface': '#141218',
+            'dark-surface-container': '#211F26',
+            'dark-surface-container-high': '#2B2930',
+            'dark-surface-container-highest': '#36343B',
+            'dark-on-surface': '#E6E1E5',
+            'dark-on-surface-variant': '#CAC4D0',
+            'dark-outline': '#938F99',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          spacing: {
+            'xs': '4px',
+            's': '8px',
+            'm': '16px',
+            'l': '24px',
+            'xl': '32px',
+            'xxl': '48px',
+          },
+          borderRadius: {
+            's': '4px',
+            'm': '8px',
+            'l': '12px',
+            'xl': '16px',
+            'full': '9999px',
+          },
+          boxShadow: {
+            'card': '0 2px 10px rgba(0, 0, 0, 0.08)',
+            'card-hover': '0 4px 20px rgba(0, 0, 0, 0.12)',
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      
+      .glass-effect {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+      }
+      
+      .dark-glass-effect {
+        background: rgba(20, 18, 24, 0.7);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+      }
+      
+      .device-card {
+        transition: all 0.3s ease;
+      }
+      
+      .device-card:hover {
+        transform: translateY(-4px);
+      }
+      
+      .progress-bar {
+        transition: width 0.5s ease;
+      }
+      
+      .nav-item {
+        transition: all 0.2s ease;
+      }
+      
+      .nav-item.active {
+        background-color: theme('colors.primary');
+        color: white;
+      }
+      
+      .sidebar-item {
+        transition: all 0.2s ease;
+      }
+      
+      .sidebar-item.active {
+        background-color: theme('colors.primary');
+        color: white;
+      }
+      
+      .file-drop-area {
+        transition: all 0.3s ease;
+      }
+      
+      .file-drop-area.drag-over {
+        border-color: theme('colors.primary');
+        background-color: rgba(103, 80, 164, 0.05);
+      }
+      
+      /* 自定义滚动条 */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: theme('colors.surface-container');
+      }
+      
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: theme('colors.outline');
+        border-radius: 3px;
+      }
+      
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: theme('colors.secondary');
+      }
+      
+      /* 深色模式滚动条 */
+      .dark .custom-scrollbar::-webkit-scrollbar-track {
+        background: theme('colors.dark-surface-container');
+      }
+      
+      .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: theme('colors.dark-outline');
+      }
+      
+      .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: theme('colors.secondary');
+      }
+      
+      /* 动画效果 */
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      
+      .animate-fadeIn {
+        animation: fadeIn 0.3s ease forwards;
+      }
+      
+      .page-transition {
+        transition: opacity 0.3s ease, transform 0.3s ease;
+      }
+      
+      .page-enter {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+      
+      .page-enter-active {
+        opacity: 1;
+        transform: translateX(0);
+      }
+      
+      /* 波纹效果 */
+      .ripple {
+        position: relative;
+        overflow: hidden;
+      }
+      
+      .ripple:after {
+        content: "";
+        display: block;
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        pointer-events: none;
+        background-image: radial-gradient(circle, #fff 10%, transparent 10.01%);
+        background-repeat: no-repeat;
+        background-position: 50%;
+        transform: scale(10, 10);
+        opacity: 0;
+        transition: transform 0.5s, opacity 0.8s;
+      }
+      
+      .ripple:active:after {
+        transform: scale(0, 0);
+        opacity: 0.3;
+        transition: 0s;
+      }
+      
+      .dark .ripple:after {
+        background-image: radial-gradient(circle, #333 10%, transparent 10.01%);
+      }
+    }
+  </style>
+</head>
+<body class="bg-surface-container text-on-surface min-h-screen flex flex-col transition-colors duration-300">
+  <!-- 顶部状态栏 -->
+  <header class="bg-surface shadow-sm sticky top-0 z-50 transition-colors duration-300">
+    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2">
+        <img src="https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/f08e5907dc05471489d67dca76c07d46~tplv-a9rns2rl98-image.image?rcl=20251021090617E028E075163E133CD0BB&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1763600805&x-signature=AUpKetIel3SSa7CwPbwcvKIHPvQ%3D" alt="YoLightTransfer Logo" class="h-8 w-8">
+        <h1 class="text-xl font-bold hidden sm:block">YoLightTransfer</h1>
+      </div>
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-1 text-sm text-success">
+          <span class="w-2 h-2 rounded-full bg-success animate-pulse"></span>
+          <span>已连接</span>
+        </div>
+        <button id="theme-toggle" class="p-2 rounded-full hover:bg-surface-container transition-colors">
+          <i class="fa fa-moon-o dark:hidden"></i>
+          <i class="fa fa-sun-o hidden dark:block"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主内容区域 -->
+  <main class="flex-1 container mx-auto px-4 py-6 flex flex-col md:flex-row gap-6">
+    <!-- 侧边栏导航 (大屏幕) -->
+    <aside class="hidden md:flex flex-col w-64 bg-surface rounded-xl shadow-card p-4 transition-colors duration-300">
+      <div class="flex flex-col gap-2 flex-1">
+        <div class="sidebar-item active rounded-lg p-3 flex items-center gap-3 cursor-pointer" data-page="home">
+          <i class="fa fa-mobile text-xl"></i>
+          <span>设备发现</span>
+        </div>
+        <div class="sidebar-item rounded-lg p-3 flex items-center gap-3 cursor-pointer" data-page="settings">
+          <i class="fa fa-cog text-xl"></i>
+          <span>设置</span>
+        </div>
+        <div class="sidebar-item rounded-lg p-3 flex items-center gap-3 cursor-pointer" data-page="profile">
+          <i class="fa fa-user text-xl"></i>
+          <span>我的</span>
+        </div>
+      </div>
+      
+      <div class="mt-auto pt-4 border-t border-outline">
+        <div class="text-sm text-on-surface-variant">
+          <div class="font-medium">YoLightTransfer</div>
+          <div>版本 1.0.0</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 内容区域 -->
+    <div class="flex-1 custom-scrollbar overflow-y-auto pb-24 md:pb-6">
+      <!-- 主页 (设备发现) -->
+      <section id="home-page" class="page-content animate-fadeIn">
+        <div class="mb-6">
+          <h2 class="text-2xl font-bold mb-2">设备发现</h2>
+          <p class="text-on-surface-variant">发现并连接到同一网络下的设备</p>
+        </div>
+        
+        <!-- 搜索框 -->
+        <div class="relative mb-6">
+          <input type="text" placeholder="搜索设备..." class="w-full py-3 px-4 pr-10 rounded-lg bg-surface border border-outline focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all">
+          <i class="fa fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-on-surface-variant"></i>
+        </div>
+        
+        <!-- 在线设备 -->
+        <div class="mb-8">
+          <h3 class="text-lg font-semibold mb-4 flex">在线设备 (3)</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Windows 设备卡片 -->
+            <div class="device-card bg-surface rounded-xl shadow-card hover:shadow-card-hover p-4 cursor-pointer">
+              <div class="flex items-center gap-4 mb-3">
+                <div class="w-12 h-12 rounded-full bg-windows flex items-center justify-center text-white">
+                  <img src="https://p26-doubao-search-sign.byteimg.com/labis/fa36360b83d0a87d8aaa5289baed6ebd~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1766192786&x-signature=uxwZGlhd5OhqlyF3KOazkqfUqDA%3D" alt="Windows" class="w-8 h-8">
+                </div>
+                <div>
+                  <h4 class="font-medium">Windows-PC</h4>
+                  <p class="text-sm text-on-surface-variant">192.168.1.100:7431</p>
+                </div>
+              </div>
+              <div class="flex items-center justify-between text-xs text-on-surface-variant">
+                <span class="flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-success animate-pulse"></span>
+                  在线 · 5秒前
+                </span>
+                <button class="text-primary hover:underline">连接</button>
+              </div>
+            </div>
+            
+            <!-- Android 设备卡片 -->
+            <div class="device-card bg-surface rounded-xl shadow-card hover:shadow-card-hover p-4 cursor-pointer">
+              <div class="flex items-center gap-4 mb-3">
+                <div class="w-12 h-12 rounded-full bg-android flex items-center justify-center text-white">
+                  <img src="https://p26-doubao-search-sign.byteimg.com/labis/598368332264f1b231cab34dca4f7413~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1766192786&x-signature=0YItcZONAj7kAVk44Ebt3bCdayo%3D" alt="Android" class="w-8 h-8">
+                </div>
+                <div>
+                  <h4 class="font-medium">Android-12</h4>
+                  <p class="text-sm text-on-surface-variant">192.168.1.102:7431</p>
+                </div>
+              </div>
+              <div class="flex items-center justify-between text-xs text-on-surface-variant">
+                <span class="flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-success animate-pulse"></span>
+                  在线 · 2秒前
+                </span>
+                <button class="text-primary hover:underline">连接</button>
+              </div>
+            </div>
+            
+            <!-- HarmonyOS 设备卡片 -->
+            <div class="device-card bg-surface rounded-xl shadow-card hover:shadow-card-hover p-4 cursor-pointer">
+              <div class="flex items-center gap-4 mb-3">
+                <div class="w-12 h-12 rounded-full bg-harmonyos flex items-center justify-center text-white">
+                  <img src="https://p11-doubao-search-sign.byteimg.com/labis/e5e0e56ae77486615c94a21847c8f724~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1766192786&x-signature=lbS%2FZgGhJQpZ4datJFOxW5ZQOMc%3D" alt="HarmonyOS" class="w-8 h-8">
+                </div>
+                <div>
+                  <h4 class="font-medium">Harmony-Pad</h4>
+                  <p class="text-sm text-on-surface-variant">192.168.1.105:7431</p>
+                </div>
+              </div>
+              <div class="flex items-center justify-between text-xs text-on-surface-variant">
+                <span class="flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-success animate-pulse"></span>
+                  在线 · 1分钟前
+                </span>
+                <button class="text-primary hover:underline">连接</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 文件选择区域 -->
+        <div class="mb-8">
+          <h3 class="text-lg font-semibold mb-4">文件传输</h3>
+          <div id="file-drop-area" class="file-drop-area bg-surface rounded-xl border-2 border-dashed border-outline p-8 text-center cursor-pointer hover:border-primary transition-colors">
+            <div class="flex flex-col items-center gap-3">
+              <i class="fa fa-cloud-upload text-4xl text-on-surface-variant"></i>
+              <h4 class="font-medium">选择文件或拖拽文件到此区域</h4>
+              <p class="text-sm text-on-surface-variant">支持图片、视频、文档等多种格式</p>
+              <button id="select-files-btn" class="mt-4 px-6 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition-colors ripple">
+                选择文件
+              </button>
+              <input type="file" id="file-input" class="hidden" multiple>
+            </div>
+            
+            <!-- 已选择文件列表 -->
+            <div id="selected-files" class="mt-6 hidden">
+              <div class="border-t border-outline pt-4">
+                <h5 class="font-medium mb-2">已选择文件:</h5>
+                <ul id="file-list" class="text-left space-y-2 mb-4 max-h-40 overflow-y-auto custom-scrollbar">
+                  <!-- 文件列表将通过JavaScript动态添加 -->
+                </ul>
+                <div class="text-sm text-on-surface-variant">
+                  总计: <span id="file-count">0</span> 个文件 (<span id="file-size">0</span> MB)
+                </div>
+                
+                <div class="mt-4 flex justify-center">
+                  <button id="upload-files-btn" class="px-6 py-2 bg-success text-white rounded-lg hover:bg-opacity-90 transition-colors ripple">
+                    上传到 Windows-PC
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 传输任务队列 -->
+        <div>
+          <h3 class="text-lg font-semibold mb-4">传输任务队列</h3>
+          <div class="bg-surface rounded-xl shadow-card overflow-hidden">
+            <!-- 传输中任务 -->
+            <div class="p-4 border-b border-outline">
+              <div class="flex justify-between items-start mb-2">
+                <div class="flex items-center gap-2">
+                  <i class="fa fa-file-pdf-o text-error"></i>
+                  <span class="font-medium">document.pdf</span>
+                </div>
+                <span class="text-sm text-warning">传输中</span>
+              </div>
+              
+              <div class="w-full bg-surface-container rounded-full h-2.5 mb-2">
+                <div class="progress-bar bg-warning h-2.5 rounded-full" style="width: 45%"></div>
+              </div>
+              
+              <div class="flex justify-between text-xs text-on-surface-variant">
+                <span>45% · 2.3MB/5.1MB</span>
+                <span>剩余约30秒</span>
+              </div>
+            </div>
+            
+            <!-- 等待中任务 -->
+            <div class="p-4 border-b border-outline">
+              <div class="flex justify-between items-start mb-2">
+                <div class="flex items-center gap-2">
+                  <i class="fa fa-file-image-o text-info"></i>
+                  <span class="font-medium">photo.jpg</span>
+                </div>
+                <span class="text-sm text-on-surface-variant">等待中</span>
+              </div>
+              
+              <div class="w-full bg-surface-container rounded-full h-2.5 mb-2">
+                <div class="progress-bar bg-outline h-2.5 rounded-full" style="width: 0%"></div>
+              </div>
+              
+              <div class="flex justify-between text-xs text-on-surface-variant">
+                <span>0% · 0MB/2.1MB</span>
+                <span>等待传输</span>
+              </div>
+            </div>
+            
+            <!-- 等待中任务 -->
+            <div class="p-4">
+              <div class="flex justify-between items-start mb-2">
+                <div class="flex items-center gap-2">
+                  <i class="fa fa-file-video-o text-accent"></i>
+                  <span class="font-medium">video.mp4</span>
+                </div>
+                <span class="text-sm text-on-surface-variant">等待中</span>
+              </div>
+              
+              <div class="w-full bg-surface-container rounded-full h-2.5 mb-2">
+                <div class="progress-bar bg-outline h-2.5 rounded-full" style="width: 0%"></div>
+              </div>
+              
+              <div class="flex justify-between text-xs text-on-surface-variant">
+                <span>0% · 0MB/250MB</span>
+                <span>等待传输</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 设置页面 -->
+      <section id="settings-page" class="page-content hidden animate-fadeIn">
+        <div class="mb-6 flex justify-between items-center">
+          <div>
+            <h2 class="text-2xl font-bold mb-2">设置</h2>
+            <p class="text-on-surface-variant">自定义应用配置和传输参数</p>
+          </div>
+          <button id="save-settings" class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition-colors ripple">
+            保存
+          </button>
+        </div>
+        
+        <!-- 设备设置 -->
+        <div class="bg-surface rounded-xl shadow-card p-6 mb-6">
+          <h3 class="text-lg font-semibold mb-4">设备设置</h3>
+          
+          <div class="space-y-4">
+            <div>
+              <label for="device-name" class="block text-sm font-medium mb-1">设备名称</label>
+              <input type="text" id="device-name" value="我的设备" class="w-full py-2 px-3 rounded-lg border border-outline focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all">
+            </div>
+            
+            <div>
+              <label for="tcp-port" class="block text-sm font-medium mb-1">TCP端口</label>
+              <input type="number" id="tcp-port" value="7431" min="1" max="65535" class="w-full py-2 px-3 rounded-lg border border-outline focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all">
+            </div>
+          </div>
+        </div>
+        
+        <!-- 传输设置 -->
+        <div class="bg-surface rounded-xl shadow-card p-6 mb-6">
+          <h3 class="text-lg font-semibold mb-4">传输设置</h3>
+          
+          <div class="space-y-4">
+            <div>
+              <label for="chunk-size" class="block text-sm font-medium mb-1">分片大小</label>
+              <select id="chunk-size" class="w-full py-2 px-3 rounded-lg border border-outline focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all">
+                <option value="512KB">512 KB</option>
+                <option value="1MB" selected>1 MB</option>
+                <option value="2MB">2 MB</option>
+                <option value="4MB">4 MB</option>
+              </select>
+            </div>
+            
+            <div>
+              <label for="timeout" class="block text-sm font-medium mb-1">超时时间</label>
+              <select id="timeout" class="w-full py-2 px-3 rounded-lg border border-outline focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all">
+                <option value="10">10秒</option>
+                <option value="20">20秒</option>
+                <option value="30" selected>30秒</option>
+                <option value="60">60秒</option>
+              </select>
+            </div>
+            
+            <div class="flex items-center">
+              <input type="checkbox" id="auto-receive" class="w-4 h-4 text-primary focus:ring-primary border-outline rounded transition-all" checked>
+              <label for="auto-receive" class="ml-2 text-sm font-medium">自动接收</label>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 网络设置 -->
+        <div class="bg-surface rounded-xl shadow-card p-6">
+          <h3 class="text-lg font-semibold mb-4">网络设置</h3>
+          
+          <div class="space-y-4">
+            <div>
+              <label for="broadcast-port" class="block text-sm font-medium mb-1">广播端口</label>
+              <input type="number" id="broadcast-port" value="7431" min="1" max="65535" class="w-full py-2 px-3 rounded-lg border border-outline focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all">
+            </div>
+            
+            <div>
+              <label for="discovery-interval" class="block text-sm font-medium mb-1">发现间隔</label>
+              <input type="number" id="discovery-interval" value="5" min="1" max="60" class="w-full py-2 px-3 rounded-lg border border-outline focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all">
+              <p class="text-xs text-on-surface-variant mt-1">单位: 秒</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 个人页面 -->
+      <section id="profile-page" class="page-content hidden animate-fadeIn">
+        <div class="mb-6">
+          <h2 class="text-2xl font-bold mb-2">我的</h2>
+          <p class="text-on-surface-variant">查看个人信息和应用数据</p>
+        </div>
+        
+        <!-- 用户信息 -->
+        <div class="bg-surface rounded-xl shadow-card p-6 mb-6">
+          <div class="flex flex-col items-center text-center">
+            <div class="w-24 h-24 rounded-full bg-surface-container flex items-center justify-center mb-4">
+              <i class="fa fa-user text-4xl text-on-surface-variant"></i>
+            </div>
+            <h3 class="text-xl font-semibold mb-1">未登录</h3>
+            <p class="text-on-surface-variant mb-4">登录以同步数据和查看历史记录</p>
+            <button class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition-colors ripple">
+              立即登录
+            </button>
+          </div>
+        </div>
+        
+        <!-- 应用信息 -->
+        <div class="bg-surface rounded-xl shadow-card p-6 mb-6">
+          <h3 class="text-lg font-semibold mb-4">应用信息</h3>
+          
+          <div class="space-y-4">
+            <div class="flex justify-between items-center">
+              <span class="text-on-surface-variant">版本</span>
+              <span>v1.0.0</span>
+            </div>
+            
+            <div class="flex space-x-4">
+              <button class="flex-1 py-2 border border-outline rounded-lg hover:bg-surface-container transition-colors ripple">
+                检查更新
+              </button>
+              <button class="flex-1 py-2 border border-outline rounded-lg hover:bg-surface-container transition-colors ripple">
+                关于软件
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 数据统计 -->
+        <div class="bg-surface rounded-xl shadow-card p-6">
+          <h3 class="text-lg font-semibold mb-4">数据统计</h3>
+          
+          <div class="space-y-6">
+            <div>
+              <div class="flex justify-between items-center mb-2">
+                <span class="text-on-surface-variant">总传输</span>
+                <span>128 文件 (2.5 GB)</span>
+              </div>
+              
+              <div class="w-full bg-surface-container rounded-full h-2.5 mb-2">
+                <div class="bg-primary h-2.5 rounded-full" style="width: 75%"></div>
+              </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+              <div class="bg-surface-container rounded-lg p-4 text-center">
+                <div class="text-2xl font-bold text-success mb-1">125</div>
+                <div class="text-sm text-on-surface-variant">成功</div>
+              </div>
+              
+              <div class="bg-surface-container rounded-lg p-4 text-center">
+                <div class="text-2xl font-bold text-error mb-1">3</div>
+                <div class="text-sm text-on-surface-variant">失败</div>
+              </div>
+            </div>
+            
+            <div>
+              <h4 class="text-sm font-medium mb-3">传输类型分布</h4>
+              <canvas id="transfer-chart" height="200"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- 底部导航栏 (小屏幕) -->
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-surface-container border-t border-outline py-2 px-4 z-40 transition-colors duration-300">
+    <div class="flex justify-around">
+      <div class="nav-item active flex flex-col items-center gap-1 px-3 py-1 rounded-lg cursor-pointer" data-page="home">
+        <i class="fa fa-mobile text-xl"></i>
+        <span class="text-xs">设备发现</span>
+      </div>
+      
+      <div class="nav-item flex flex-col items-center gap-1 px-3 py-1 rounded-lg cursor-pointer" data-page="settings">
+        <i class="fa fa-cog text-xl"></i>
+        <span class="text-xs">设置</span>
+      </div>
+      
+      <div class="nav-item flex flex-col items-center gap-1 px-3 py-1 rounded-lg cursor-pointer" data-page="profile">
+        <i class="fa fa-user text-xl"></i>
+        <span class="text-xs">我的</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 通知提示 -->
+  <div id="notification" class="fixed top-4 right-4 bg-surface rounded-lg shadow-lg p-4 max-w-xs transform translate-x-full transition-transform duration-300 z-50">
+    <div class="flex items-start gap-3">
+      <div id="notification-icon" class="w-6 h-6 rounded-full flex items-center justify-center text-white">
+        <i class="fa fa-check"></i>
+      </div>
+      <div class="flex-1">
+        <h4 id="notification-title" class="font-medium mb-1">通知标题</h4>
+        <p id="notification-message" class="text-sm text-on-surface-variant">通知内容</p>
+      </div>
+      <button id="close-notification" class="text-on-surface-variant hover:text-on-surface">
+        <i class="fa fa-times"></i>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // DOM 元素
+    const pages = document.querySelectorAll('.page-content');
+    const navItems = document.querySelectorAll('.nav-item');
+    const sidebarItems = document.querySelectorAll('.sidebar-item');
+    const themeToggle = document.getElementById('theme-toggle');
+    const fileDropArea = document.getElementById('file-drop-area');
+    const fileInput = document.getElementById('file-input');
+    const selectFilesBtn = document.getElementById('select-files-btn');
+    const selectedFiles = document.getElementById('selected-files');
+    const fileList = document.getElementById('file-list');
+    const fileCount = document.getElementById('file-count');
+    const fileSize = document.getElementById('file-size');
+    const uploadFilesBtn = document.getElementById('upload-files-btn');
+    const saveSettingsBtn = document.getElementById('save-settings');
+    const notification = document.getElementById('notification');
+    const notificationTitle = document.getElementById('notification-title');
+    const notificationMessage = document.getElementById('notification-message');
+    const notificationIcon = document.getElementById('notification-icon');
+    const closeNotification = document.getElementById('close-notification');
+    
+    // 页面切换
+    function showPage(pageId) {
+      // 隐藏所有页面
+      pages.forEach(page => {
+        page.classList.add('hidden');
+      });
+      
+      // 显示选中的页面
+      const selectedPage = document.getElementById(`${pageId}-page`);
+      if (selectedPage) {
+        selectedPage.classList.remove('hidden');
+        
+        // 添加动画效果
+        selectedPage.classList.add('page-enter');
+        setTimeout(() => {
+          selectedPage.classList.add('page-enter-active');
+        }, 10);
+        setTimeout(() => {
+          selectedPage.classList.remove('page-enter', 'page-enter-active');
+        }, 300);
+      }
+      
+      // 更新导航栏状态
+      navItems.forEach(item => {
+        if (item.dataset.page === pageId) {
+          item.classList.add('active');
+        } else {
+          item.classList.remove('active');
+        }
+      });
+      
+      // 更新侧边栏状态
+      sidebarItems.forEach(item => {
+        if (item.dataset.page === pageId) {
+          item.classList.add('active');
+        } else {
+          item.classList.remove('active');
+        }
+      });
+    }
+    
+    // 初始化页面
+    document.addEventListener('DOMContentLoaded', () => {
+      // 设置默认页面
+      showPage('home');
+      
+      // 初始化主题
+      initTheme();
+      
+      // 初始化图表
+      initChart();
+      
+      // 设置事件监听器
+      setupEventListeners();
+    });
+    
+    // 初始化主题
+    function initTheme() {
+      // 检查本地存储中的主题设置
+      const savedTheme = localStorage.getItem('theme');
+      
+      if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+    
+    // 初始化图表
+    function initChart() {
+      const ctx = document.getElementById('transfer-chart');
+      
+      if (ctx) {
+        new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: ['图片', '视频', '文档', '其他'],
+            datasets: [{
+              data: [45, 30, 15, 10],
+              backgroundColor: [
+                '#2196F3',
+                '#7D5260',
+                '#FF9800',
+                '#625B71'
+              ],
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: {
+                  usePointStyle: true,
+                  padding: 20
+                }
+              }
+            },
+            cutout: '70%'
+          }
+        });
+      }
+    }
+    
+    // 设置事件监听器
+    function setupEventListeners() {
+      // 导航栏点击事件
+      navItems.forEach(item => {
+        item.addEventListener('click', () => {
+          showPage(item.dataset.page);
+        });
+      });
+      
+      // 侧边栏点击事件
+      sidebarItems.forEach(item => {
+        item.addEventListener('click', () => {
+          showPage(item.dataset.page);
+        });
+      });
+      
+      // 主题切换事件
+      themeToggle.addEventListener('click', () => {
+        if (document.documentElement.classList.contains('dark')) {
+          document.documentElement.classList.remove('dark');
+          localStorage.setItem('theme', 'light');
+        } else {
+          document.documentElement.classList.add('dark');
+          localStorage.setItem('theme', 'dark');
+        }
+      });
+      
+      // 文件选择事件
+      selectFilesBtn.addEventListener('click', () => {
+        fileInput.click();
+      });
+      
+      // 文件输入变化事件
+      fileInput.addEventListener('change', handleFileSelect);
+      
+      // 拖放事件
+      fileDropArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        fileDropArea.classList.add('drag-over');
+      });
+      
+      fileDropArea.addEventListener('dragleave', () => {
+        fileDropArea.classList.remove('drag-over');
+      });
+      
+      fileDropArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        fileDropArea.classList.remove('drag-over');
+        
+        if (e.dataTransfer.files.length > 0) {
+          handleFiles(e.dataTransfer.files);
+        }
+      });
+      
+      // 上传文件按钮点击事件
+      uploadFilesBtn.addEventListener('click', () => {
+        showNotification('success', '上传开始', '文件正在上传到 Windows-PC');
+        
+        // 模拟上传进度
+        simulateUploadProgress();
+      });
+      
+      // 保存设置按钮点击事件
+      saveSettingsBtn.addEventListener('click', () => {
+        showNotification('success', '设置已保存', '您的设置已成功保存');
+      });
+      
+      // 关闭通知按钮点击事件
+      closeNotification.addEventListener('click', () => {
+        hideNotification();
+      });
+      
+      // 设备卡片点击事件
+      const deviceCards = document.querySelectorAll('.device-card');
+      deviceCards.forEach(card => {
+        card.addEventListener('click', () => {
+          const deviceName = card.querySelector('h4').textContent;
+          showNotification('info', '设备连接', `正在连接到 ${deviceName}`);
+        });
+      });
+    }
+    
+    // 处理文件选择
+    function handleFileSelect(e) {
+      if (e.target.files.length > 0) {
+        handleFiles(e.target.files);
+      }
+    }
+    
+    // 处理文件
+    function handleFiles(files) {
+      // 清空文件列表
+      fileList.innerHTML = '';
+      
+      let totalSize = 0;
+      
+      // 添加文件到列表
+      Array.from(files).forEach(file => {
+        totalSize += file.size;
+        
+        const li = document.createElement('li');
+        li.className = 'flex justify-between items-center';
+        
+        // 确定文件图标
+        let fileIcon = 'fa-file-o';
+        if (file.type.startsWith('image/')) {
+          fileIcon = 'fa-file-image-o';
+        } else if (file.type.startsWith('video/')) {
+          fileIcon = 'fa-file-video-o';
+        } else if (file.type.startsWith('audio/')) {
+          fileIcon = 'fa-file-audio-o';
+        } else if (file.type.includes('pdf')) {
+          fileIcon = 'fa-file-pdf-o';
+        } else if (file.type.includes('word') || file.type.includes('doc')) {
+          fileIcon = 'fa-file-word-o';
+        } else if (file.type.includes('excel') || file.type.includes('xls')) {
+          fileIcon = 'fa-file-excel-o';
+        } else if (file.type.includes('powerpoint') || file.type.includes('ppt')) {
+          fileIcon = 'fa-file-powerpoint-o';
+        } else if (file.type.includes('text') || file.type.includes('plain')) {
+          fileIcon = 'fa-file-text-o';
+        }
+        
+        li.innerHTML = `
+          <div class="flex items-center gap-2">
+            <i class="fa ${fileIcon}"></i>
+            <span class="text-sm truncate max-w-[200px]">${file.name}</span>
+          </div>
+          <span class="text-xs text-on-surface-variant">${formatFileSize(file.size)}</span>
+        `;
+        
+        fileList.appendChild(li);
+      });
+      
+      // 更新文件计数和大小
+      fileCount.textContent = files.length;
+      fileSize.textContent = formatFileSize(totalSize, true);
+      
+      // 显示已选择文件区域
+      selectedFiles.classList.remove('hidden');
+    }
+    
+    // 格式化文件大小
+    function formatFileSize(bytes, roundToDecimal = false) {
+      if (bytes === 0) return '0 Bytes';
+      
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      
+      if (roundToDecimal) {
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+      } else {
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+      }
+    }
+    
+    // 模拟上传进度
+    function simulateUploadProgress() {
+      const progressBars = document.querySelectorAll('.progress-bar');
+      
+      // 第一个进度条模拟上传中
+      let progress = 45;
+      const interval = setInterval(() => {
+        progress += 1;
+        progressBars[0].style.width = `${progress}%`;
+        
+        // 更新进度文本
+        const progressText = progressBars[0].parentNode.nextElementSibling.querySelector('span:first-child');
+        progressText.textContent = `${progress}% · ${Math.round(5.1 * progress / 100)}MB/5.1MB`;
+        
+        if (progress >= 100) {
+          clearInterval(interval);
+          
+          // 更新状态为完成
+          const statusText = progressBars[0].parentNode.parentNode.querySelector('span.text-warning');
+          statusText.textContent = '已完成';
+          statusText.className = 'text-sm text-success';
+          
+          // 显示完成通知
+          setTimeout(() => {
+            showNotification('success', '上传完成', 'document.pdf 已成功上传');
+            
+            // 开始第二个文件上传
+            setTimeout(() => {
+              simulateSecondFileUpload(progressBars);
+            }, 1000);
+          }, 500);
+        }
+      }, 300);
+    }
+    
+    // 模拟第二个文件上传
+    function simulateSecondFileUpload(progressBars) {
+      // 更新状态为上传中
+      const statusText = progressBars[1].parentNode.parentNode.querySelector('span.text-on-surface-variant');
+      statusText.textContent = '传输中';
+      statusText.className = 'text-sm text-warning';
+      
+      // 第二个进度条模拟上传中
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 2;
+        progressBars[1].style.width = `${progress}%`;
+        progressBars[1].className = 'progress-bar bg-warning h-2.5 rounded-full';
+        
+        // 更新进度文本
+        const progressText = progressBars[1].parentNode.parentNode.nextElementSibling.querySelector('span:first-child');
+        progressText.textContent = `${progress}% · ${Math.round(2.1 * progress / 100)}MB/2.1MB`;
+        
+        if (progress >= 100) {
+          clearInterval(interval);
+          
+          // 更新状态为完成
+          statusText.textContent = '已完成';
+          statusText.className = 'text-sm text-success';
+          
+          // 显示完成通知
+          setTimeout(() => {
+            showNotification('success', '上传完成', 'photo.jpg 已成功上传');
+            
+            // 开始第三个文件列表
+            selectedFiles.classList.add('hidden');
+            fileInput.value = '';
+          }, 500);
+        }
+      }, 200);
+    }
+    
+    // 显示通知
+    function showNotification(type, title, message) {
+      // 设置通知类型样式
+      let iconClass = 'fa-check';
+      let bgColor = 'bg-success';
+      
+      if (type === 'error') {
+        iconClass = 'fa-times';
+        bgColor = 'bg-error';
+      } else if (type === 'warning') {
+        iconClass = 'fa-exclamation';
+        bgColor = 'bg-warning';
+      } else if (type === 'info') {
+        iconClass = 'fa-info';
+        bgColor = 'bg-info';
+      }
+      
+      // 更新通知内容
+      notificationTitle.textContent = title;
+      notificationMessage.textContent = message;
+      notificationIcon.className = `w-6 h-6 rounded-full flex items-center justify-center text-white ${bgColor}`;
+      notificationIcon.innerHTML = `<i class="fa ${iconClass}"></i>`;
+      
+      // 显示通知
+      notification.classList.remove('translate-x-full');
+      
+      // 3秒后自动隐藏
+      setTimeout(() => {
+        hideNotification();
+      }, 3000);
+    }
+    
+    // 隐藏通知
+    function hideNotification() {
+      notification.classList.add('translate-x-full');
+    }
+  </script>
+</body>
+</html>
