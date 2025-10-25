@@ -53,7 +53,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                 configService,
                 key: AppConfigService.enableTransferLogPage,
                 label: '启用传输日志页面',
-                description: '控制是否在应用中显示传输日志页面',
+                description: '控制是否在应用中显示传输日志页面 [日志过多可能造成卡顿]',
                 onChanged: (value) => _updateConfig(AppConfigService.enableTransferLogPage, value),
               ),
               _buildIntegerConfig(
@@ -84,23 +84,14 @@ class _ConfigScreenState extends State<ConfigScreen> {
                 description: '传输完成后验证文件的完整性',
                 onChanged: (value) => _updateConfig(AppConfigService.enableFileVerification, value),
               ),
-              _buildBooleanConfig(
-                configService,
-                key: AppConfigService.enableTransferRecovery,
-                label: '启用传输恢复',
-                description: '支持断点续传和传输失败恢复',
-                onChanged: (value) => _updateConfig(AppConfigService.enableTransferRecovery, value),
-              ),
-              _buildIntegerConfig(
-                configService,
-                key: AppConfigService.transferChunkSize,
-                label: '传输分片大小',
-                description: '文件传输时的分片大小（字节）',
-                minValue: 1024,
-                maxValue: 1024 * 1024,
-                step: 1024,
-                onChanged: (value) => _updateConfig(AppConfigService.transferChunkSize, value),
-              ),
+              // Beta Todo
+              // _buildBooleanConfig(
+              //   configService,
+              //   key: AppConfigService.enableTransferRecovery,
+              //   label: '启用传输恢复',
+              //   description: '支持断点续传和传输失败恢复',
+              //   onChanged: (value) => _updateConfig(AppConfigService.enableTransferRecovery, value),
+              // ),
               _buildIntegerConfig(
                 configService,
                 key: AppConfigService.connectionTimeout,
@@ -125,14 +116,14 @@ class _ConfigScreenState extends State<ConfigScreen> {
               _buildBooleanConfig(
                 configService,
                 key: AppConfigService.enableDebugMode,
-                label: '启用调试模式',
+                label: '启用调试模式 [BETA]',
                 description: '显示详细的调试信息和日志',
                 onChanged: (value) => _updateConfig(AppConfigService.enableDebugMode, value),
               ),
               _buildBooleanConfig(
                 configService,
                 key: AppConfigService.enableAutoSave,
-                label: '启用自动保存',
+                label: '启用自动保存 [BETA]',
                 description: '自动保存配置更改',
                 onChanged: (value) => _updateConfig(AppConfigService.enableAutoSave, value),
               ),

@@ -4,19 +4,27 @@
 /// 用于客户端和服务器之间的通信
 
 /// HTTP 传输协议相关常量
+/// 
+/// 采用流式 HTTP 传输方式：
+/// - 单连接流式传输，无分片概念
+/// - 支持 Range 请求实现断点续传
+/// - 内存占用低，适合超大文件传输
 class HttpTransferProtocol {
   // HTTP 端点
   static const String UPLOAD_ENDPOINT = '/upload';
   static const String DOWNLOAD_ENDPOINT = '/download';
   static const String STATUS_ENDPOINT = '/status';
   
-  // HTTP 请求头
+  // HTTP 请求头（流式传输）
   static const String HEADER_FILE_NAME = 'X-File-Name';
   static const String HEADER_FILE_SIZE = 'X-File-Size';
   static const String HEADER_FILE_HASH = 'X-File-Hash';
-  static const String HEADER_CHUNK_INDEX = 'X-Chunk-Index';
-  static const String HEADER_TOTAL_CHUNKS = 'X-Total-Chunks';
   static const String HEADER_TRANSPORT_METHOD = 'X-Transport-Method';
+  
+  // Range 请求相关头
+  static const String HEADER_RANGE = 'Range';
+  static const String HEADER_CONTENT_RANGE = 'Content-Range';
+  static const String HEADER_ACCEPT_RANGES = 'Accept-Ranges';
   
   // HTTP 响应码
   static const int SUCCESS = 200;
@@ -28,6 +36,7 @@ class HttpTransferProtocol {
   
   // 传输方式
   static const String TRANSPORT_HTTP = 'HTTP';
+  static const String TRANSPORT_STREAM = 'STREAM';
 }
 
 /// UDP 发现协议相关常量

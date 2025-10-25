@@ -14,6 +14,7 @@ import 'package:yolighttransfer/services/device/device_manager.dart';
 import 'package:yolighttransfer/services/http/http_transfer_client.dart';
 import 'package:yolighttransfer/services/transfer/transfer_log_manager.dart';
 import 'package:yolighttransfer/models/transfer_log.dart';
+import 'package:yolighttransfer/services/file/cache_cleanup_service.dart';
 
 class FileSelectionArea extends StatefulWidget {
   const FileSelectionArea({super.key});
@@ -380,9 +381,13 @@ class _FileSelectionAreaState extends State<FileSelectionArea> {
         taskManager.markFailed(file.name, e.toString());
       }
     }
+
+    // 传输完成后清理 cache
+    await _cleanupCacheAfterTransfer();
   }
 
   /// 使用 HTTP 协议传输文件
+  /// 直接从源文件路径读取，无需复制到软件目录
   Future<void> _startHttpFileTransfer(
     FileInfo file,
     DiscoveredDevice targetDevice,
@@ -394,6 +399,7 @@ class _FileSelectionAreaState extends State<FileSelectionArea> {
 
     print('开始 HTTP 文件传输...');
     print('连接参数 - 主机: $host, 端口: $port');
+    print('源文件路径: ${file.path}');
 
     // 创建 HTTP 客户端
     final httpClient = HttpTransferClient(
@@ -422,12 +428,13 @@ class _FileSelectionAreaState extends State<FileSelectionArea> {
       );
     };
 
-    // 执行上传
+    // 执行流式上传（直接从源文件读取，无需复制）
+    // 上传完成或失败后会自动删除 cache 文件
     final success = await httpClient.uploadFile(
       filePath: file.path,
       fileName: file.name,
-      chunkSize: 1048576, // 1MB
       maxRetries: 3,
+      resumeUpload: true,
     );
 
     if (success) {
@@ -447,6 +454,19 @@ class _FileSelectionAreaState extends State<FileSelectionArea> {
       print('HTTP 文件传输完成: ${file.name}');
     } else {
       throw Exception('HTTP 文件上传失败');
+    }
+  }
+
+  /// 传输完成后清理 cache
+  Future<void> _cleanupCacheAfterTransfer() async {
+    try {
+      print('🧹 开始清理 file_picker cache...');
+      final deletedCount = await CacheCleanupService.cleanFilePickerCache();
+      if (deletedCount > 0) {
+        print('✅ 清理完成，删除了 $deletedCount 个文件');
+      }
+    } catch (e) {
+      print('⚠️ 清理 cache 失败: $e');
     }
   }
 

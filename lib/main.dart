@@ -17,12 +17,17 @@ import 'package:yolighttransfer/services/font/font_manager.dart';
 import 'package:yolighttransfer/services/http/http_transfer_manager.dart';
 import 'package:yolighttransfer/services/transfer/transfer_log_manager.dart';
 import 'package:yolighttransfer/services/config/app_config_service.dart';
+import 'package:yolighttransfer/services/file/cache_cleanup_service.dart';
 import 'package:yolighttransfer/widgets/file_receive_dialog.dart';
+import 'package:yolighttransfer/services/config/version_service.dart';
 
 void main() async {
   // 预加载字体
   WidgetsFlutterBinding.ensureInitialized();
   await FontManager.preloadFonts();
+  
+  // 初始化版本服务
+  await VersionService().initialize();
   
   runApp(
     MultiProvider(
@@ -105,6 +110,9 @@ class _MainScreenState extends State<MainScreen> {
       final configService = context.read<AppConfigService>();
       await configService.initialize();
       
+      // 应用启动时清理过期的 cache 文件
+      await _cleanupExpiredCache();
+      
       // 执行网络诊断
       await _runNetworkDiagnostics();
       
@@ -145,6 +153,24 @@ class _MainScreenState extends State<MainScreen> {
       // 应用启动时申请文件访问权限
       _requestFilePermissions();
     });
+  }
+
+  /// 清理过期的 cache 文件
+  Future<void> _cleanupExpiredCache() async {
+    try {
+      print('🧹 应用启动时清理过期 cache...');
+      
+      // 清理 file_picker 的 cache 目录
+      final deletedCount = await CacheCleanupService.cleanFilePickerCache();
+      
+      if (deletedCount > 0) {
+        print('✅ 清理完成，删除了 $deletedCount 个过期文件');
+      } else {
+        print('✅ 没有过期文件需要清理');
+      }
+    } catch (e) {
+      print('⚠️ 清理过期 cache 失败: $e');
+    }
   }
 
   /// 执行网络诊断
@@ -235,7 +261,7 @@ class _MainScreenState extends State<MainScreen> {
         '设备发现',
         if (enableTransferLogPage) '传输日志',
         '配置',
-        '我的',
+        '我的 [BETA]',
       ];
       
       return titles;
@@ -244,9 +270,9 @@ class _MainScreenState extends State<MainScreen> {
       print('配置服务访问失败，使用默认标题: $e');
       return [
         '设备发现',
-        '传输日志', // 默认启用传输日志页面
+        // '传输日志', // 默认不启用传输日志页面
         '配置',
-        '我的',
+        '我的 [BETA]',
       ];
     }
   }
@@ -261,7 +287,7 @@ class _MainScreenState extends State<MainScreen> {
         _NavItemData(icon: Icons.devices, label: '设备发现'),
         if (enableTransferLogPage) _NavItemData(icon: Icons.history, label: '传输日志'),
         _NavItemData(icon: Icons.settings, label: '配置'),
-        _NavItemData(icon: Icons.person, label: '我的'),
+        _NavItemData(icon: Icons.person, label: '我的 [BETA]'),
       ];
       
       return items;
@@ -272,7 +298,7 @@ class _MainScreenState extends State<MainScreen> {
         _NavItemData(icon: Icons.devices, label: '设备发现'),
         _NavItemData(icon: Icons.history, label: '传输日志'), // 默认启用传输日志页面
         _NavItemData(icon: Icons.settings, label: '配置'),
-        _NavItemData(icon: Icons.person, label: '我的'),
+        _NavItemData(icon: Icons.person, label: '我的 [BETA]'),
       ];
     }
   }
@@ -299,7 +325,7 @@ class _MainScreenState extends State<MainScreen> {
         ),
         const BottomNavigationBarItem(
           icon: Icon(Icons.person),
-          label: '我的',
+          label: '我的 [BETA]',
         ),
       ];
       
@@ -322,7 +348,7 @@ class _MainScreenState extends State<MainScreen> {
         ),
         const BottomNavigationBarItem(
           icon: Icon(Icons.person),
-          label: '我的',
+          label: '我的 [BETA]',
         ),
       ];
     }
@@ -437,18 +463,6 @@ class _MainScreenState extends State<MainScreen> {
                   centerTitle: true,
                   backgroundColor: Colors.transparent,
                   elevation: 0,
-                  actions: _currentIndex == 1
-                      ? [
-                          TextButton(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('设置已保存')),
-                              );
-                            },
-                            child: const Text('保存'),
-                          ),
-                        ]
-                      : null,
                 ),
                 body: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),

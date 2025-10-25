@@ -22,19 +22,19 @@ class AppConfigService {
   static const String enableFileVerification = 'enableFileVerification';
   static const String enableTransferRecovery = 'enableTransferRecovery';
   static const String connectionTimeout = 'connectionTimeout';
-  static const String transferChunkSize = 'transferChunkSize';
+  // static const String transferChunkSize = 'transferChunkSize';
 
   /// 默认配置值
   static const Map<String, dynamic> _defaultConfig = {
-    enableTransferLogPage: true,      // 启用传输日志页面
+    enableTransferLogPage: false,      // 启用传输日志页面
     enableDebugMode: false,           // 调试模式
-    enableAutoSave: true,             // 自动保存
+    enableAutoSave: false,             // 自动保存
     defaultSavePath: '',              // 默认保存路径
-    maxLogEntries: 1000,              // 最大日志条目数
+    maxLogEntries: 100,              // 最大日志条目数
     enableFileVerification: true,     // 启用文件校验
     enableTransferRecovery: true,     // 启用传输恢复
     connectionTimeout: 60000,         // 连接超时时间（毫秒）
-    transferChunkSize: 65536,         // 传输分片大小（字节）
+    // transferChunkSize: 65536,         // 传输分片大小（字节）
   };
 
   /// 初始化配置服务
@@ -261,8 +261,8 @@ extension AppConfigKeys on String {
         return '启用传输恢复';
       case AppConfigService.connectionTimeout:
         return '连接超时时间';
-      case AppConfigService.transferChunkSize:
-        return '传输分片大小';
+      // case AppConfigService.transferChunkSize:
+      //   return '传输分片大小';
       default:
         return this;
     }
@@ -279,7 +279,7 @@ extension AppConfigKeys on String {
         return '布尔值';
       case AppConfigService.maxLogEntries:
       case AppConfigService.connectionTimeout:
-      case AppConfigService.transferChunkSize:
+      // case AppConfigService.transferChunkSize:
         return '整数';
       case AppConfigService.defaultSavePath:
         return '字符串';

@@ -83,11 +83,12 @@ class HttpTransferManager {
     _log('✅ HTTP 客户端已初始化: $serverIp:$serverPort');
   }
 
-  /// 上传文件到远程设备
+  /// 上传文件到远程设备（流式上传）
   Future<bool> uploadFile({
     required String filePath,
     required String fileName,
     required DiscoveredDevice targetDevice,
+    bool resumeUpload = true,
   }) async {
     if (_client == null) {
       _log('❌ HTTP 客户端未初始化');
@@ -104,10 +105,11 @@ class HttpTransferManager {
         device: targetDevice,
       );
 
-      // 执行上传
+      // 执行流式上传
       final success = await _client!.uploadFile(
         filePath: filePath,
         fileName: fileName,
+        resumeUpload: resumeUpload,
       );
 
       if (success) {

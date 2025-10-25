@@ -1,7 +1,7 @@
 name: yolighttransfer
 description: A modern file transfer application with Material You design.
 publish_to: 'none'
-version: 1.0.0+1
+version: 0.1.0+1
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -23,17 +23,33 @@ dependencies:
   permission_handler: ^12.0.1
   crypto: ^3.0.3
   http: ^1.1.0
+  yaml: ^3.1.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^2.0.0
+  msix: ^3.10.0
+
+msix_config:
+  display_name: YoLightTransfer
+  publisher_display_name: WaveYo
+  identity_name: com.waveyo.yolighttransfer
+  msix_version: 0.1.0.0
+  certificate_path: 
+  certificate_password: 
+  logo_path: 
+  start_menu_icon_path: 
+  tile_icon_path: 
+  capabilities: internetClient,privateNetworkClientServer
+  file_extension:
 
 flutter:
   uses-material-design: true
 
   assets:
     - assets/front/MiSans-Regular.ttf
+    - lib/config.yaml
 
   fonts:
     - family: MiSans
