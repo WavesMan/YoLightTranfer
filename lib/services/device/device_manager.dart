@@ -32,7 +32,7 @@ class DeviceManager extends ChangeNotifier {
     // print('${isNew ? '新增' : '更新'}设备: ${d.name} (${d.id})');
     // print('IP地址: ${deviceToUpdate.ip} ${isNew ? '' : '(保持稳定IP)'}');
     // print('系统: ${d.os}');
-    // print('TCP端口: ${d.tcpPort}');
+    // print('HTTP端口: ${d.httpPort}');
     // print('当前设备总数: ${_devices.length}');
     
     // 覆盖或插入设备；除 lastSeenMs 外，DiscoveredDevice 字段保持不可变。
@@ -149,7 +149,7 @@ class DeviceManager extends ChangeNotifier {
     return ui.Device(
       name: d.name,
       type: type,
-      ip: '${d.ip}:${d.tcpPort}',
+      ip: '${d.ip}:${d.httpPort}',
       status: status,
       lastSeen: lastSeenText,
     );

@@ -11,7 +11,7 @@ import 'package:yolighttransfer/services/file_picker/file_picker_factory.dart';
 import 'package:yolighttransfer/services/file_picker/file_picker_service.dart';
 import 'package:yolighttransfer/services/transfer/transfer_task_manager.dart';
 import 'package:yolighttransfer/services/device/device_manager.dart';
-import 'package:yolighttransfer/services/tcp/enhanced_tcp_transfer_client.dart';
+import 'package:yolighttransfer/services/http/http_transfer_client.dart';
 import 'package:yolighttransfer/services/transfer/transfer_log_manager.dart';
 import 'package:yolighttransfer/models/transfer_log.dart';
 
@@ -340,91 +340,20 @@ class _FileSelectionAreaState extends State<FileSelectionArea> {
 
         // 使用设备对象中的IP和端口
         final host = targetDevice.ip;
-        final port = targetDevice.tcpPort;
+        final transportMethod = targetDevice.transportMethod;
 
         print('=== 文件传输调试信息 ===');
         print('目标设备: ${targetDevice.name}');
         print('设备ID: ${targetDevice.id}');
         print('设备IP: $host');
-        print('设备TCP端口: $port');
+        print('传输方式: $transportMethod');
         print('设备系统: ${targetDevice.os}');
         print('文件名: ${file.name}');
         print('文件大小: ${file.size} bytes');
-        print('开始连接到设备: $host:$port');
         print('====================');
 
-        // 创建增强的TCP客户端并连接
-        final client = EnhancedTcpTransferClient();
-        client.setLogManager(logManager);
-        
-        print('正在创建TCP客户端连接...');
-        print('连接参数 - 主机: $host, 端口: $port');
-        
-        try {
-          await client.connect(host: host, port: port);
-          print('✓ TCP连接成功，发送文件传输请求...');
-        } catch (e) {
-          print('✗ TCP连接失败: $e');
-          print('连接详情: 尝试连接到 $host:$port');
-          
-          // 记录连接失败日志
-          client.logTransferError(
-            fileName: file.name,
-            error: 'TCP连接失败: $e',
-            targetDevice: targetDevice,
-          );
-          rethrow;
-        }
-
-        // 发送文件传输请求并等待确认
-        final accepted = await client.sendFileTransferRequest(
-          senderDeviceName: '本地设备', // 这里应该使用实际的设备名称
-          fileName: file.name,
-          fileSize: file.size,
-          filePath: file.path,
-          targetDevice: targetDevice,
-        );
-
-        if (!accepted) {
-          throw Exception('对方拒绝了文件传输请求');
-        }
-
-        print('文件传输请求已接受，开始传输...');
-
-        // 创建文件对象并开始实际文件传输
-        final fileObj = File(file.path);
-        await client.sendFile(
-          file: fileObj,
-          remotePath: file.name,
-          targetDevice: targetDevice,
-          onProgress: (sentBytes, totalBytes) {
-            final progress = (sentBytes / totalBytes * 100).round();
-            taskManager.updateProgress(
-              fileName: file.name,
-              progress: progress,
-              transferredSize: '$sentBytes B',
-              eta: '计算中...',
-            );
-          },
-        );
-
-        // 传输完成
-        taskManager.markCompleted(file.name);
-        
-        // 记录传输完成日志
-        logManager.addCompleteLog(
-          logId: '${DateTime.now().millisecondsSinceEpoch}_send_${file.name.hashCode}',
-          type: TransferLogType.send,
-          fileName: file.name,
-          fileSize: file.size,
-          filePath: file.path,
-          targetDevice: targetDevice,
-        );
-        
-        // 关闭客户端连接
-        await client.close();
-
-        print('文件传输完成: ${file.name}');
+        // 只使用 HTTP 传输
+        await _startHttpFileTransfer(file, targetDevice, taskManager, logManager);
 
       } catch (e) {
         // 传输失败
@@ -432,7 +361,6 @@ class _FileSelectionAreaState extends State<FileSelectionArea> {
         print(errorMsg);
         
         // 记录错误日志
-        final logManager = context.read<TransferLogManager>();
         logManager.addErrorLog(
           type: TransferLogType.send,
           fileName: file.name,
@@ -453,6 +381,75 @@ class _FileSelectionAreaState extends State<FileSelectionArea> {
       }
     }
   }
+
+  /// 使用 HTTP 协议传输文件
+  Future<void> _startHttpFileTransfer(
+    FileInfo file,
+    DiscoveredDevice targetDevice,
+    TransferTaskManager taskManager,
+    TransferLogManager logManager,
+  ) async {
+    final host = targetDevice.ip;
+    final port = targetDevice.httpPort!;
+
+    print('开始 HTTP 文件传输...');
+    print('连接参数 - 主机: $host, 端口: $port');
+
+    // 创建 HTTP 客户端
+    final httpClient = HttpTransferClient(
+      serverIp: host,
+      serverPort: port,
+    );
+
+    // 设置进度回调
+    httpClient.onProgress = (uploadedBytes, totalBytes) {
+      final progress = (uploadedBytes / totalBytes * 100).round();
+      taskManager.updateProgress(
+        fileName: file.name,
+        progress: progress,
+        transferredSize: '$uploadedBytes B',
+        eta: '计算中...',
+      );
+    };
+
+    // 设置日志回调
+    httpClient.onLog = (message) {
+      print('HTTP传输: $message');
+      logManager.addInfoLog(
+        message: message,
+        fileName: file.name,
+        device: targetDevice,
+      );
+    };
+
+    // 执行上传
+    final success = await httpClient.uploadFile(
+      filePath: file.path,
+      fileName: file.name,
+      chunkSize: 1048576, // 1MB
+      maxRetries: 3,
+    );
+
+    if (success) {
+      // 传输完成
+      taskManager.markCompleted(file.name);
+      
+      // 记录传输完成日志
+      logManager.addCompleteLog(
+        logId: '${DateTime.now().millisecondsSinceEpoch}_send_${file.name.hashCode}',
+        type: TransferLogType.send,
+        fileName: file.name,
+        fileSize: file.size,
+        filePath: file.path,
+        targetDevice: targetDevice,
+      );
+
+      print('HTTP 文件传输完成: ${file.name}');
+    } else {
+      throw Exception('HTTP 文件上传失败');
+    }
+  }
+
 
   /// 根据文件扩展名获取对应的图标
   IconData _getFileIcon(String extension) {

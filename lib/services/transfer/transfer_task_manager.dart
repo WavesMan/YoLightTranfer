@@ -127,4 +127,46 @@ class TransferTaskManager extends ChangeNotifier {
     );
     notifyListeners();
   }
+
+  /// 添加接收任务（接收端）
+  void addReceivingTask(String fileName, int fileSize, DiscoveredDevice? sourceDevice) {
+    final task = ui.TransferTask(
+      fileName: fileName,
+      progress: 0,
+      totalSize: _formatBytes(fileSize),
+      transferredSize: '0 B',
+      status: ui.TransferStatus.transferring,
+      estimatedTime: '接收中...',
+      targetDevice: sourceDevice,
+      fileInfo: null,
+    );
+    _tasks.add(task);
+    notifyListeners();
+  }
+
+  /// 标记接收完成
+  void markReceiveCompleted(String fileName) {
+    final idx = _tasks.indexWhere((t) => t.fileName == fileName);
+    if (idx == -1) return;
+    final t = _tasks[idx];
+    _tasks[idx] = ui.TransferTask(
+      fileName: t.fileName,
+      progress: 100,
+      totalSize: t.totalSize,
+      transferredSize: t.totalSize,
+      status: ui.TransferStatus.completed,
+      estimatedTime: '0s',
+      targetDevice: t.targetDevice,
+      fileInfo: t.fileInfo,
+    );
+    notifyListeners();
+  }
+
+  /// 格式化字节大小
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
 }

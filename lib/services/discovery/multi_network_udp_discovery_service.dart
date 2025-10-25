@@ -38,7 +38,8 @@ class MultiNetworkUdpDiscoveryService {
   /// 启动多网络发现服务
   Future<void> start({
     required String deviceName,
-    required int tcpPort,
+    required int httpPort,
+    String transportMethod = 'HTTP',
   }) async {
     if (!isSupported) return;
     if (_running) return;
@@ -53,11 +54,19 @@ class MultiNetworkUdpDiscoveryService {
 
     // 周期性发送心跳
     _broadcastTimer = Timer.periodic(heartbeatInterval, (_) {
-      _sendMultiNetworkHeartbeat(deviceName: deviceName, tcpPort: tcpPort);
+      _sendMultiNetworkHeartbeat(
+        deviceName: deviceName,
+        httpPort: httpPort,
+        transportMethod: transportMethod,
+      );
     });
 
     // 立即发送一次心跳，加速首轮发现
-    _sendMultiNetworkHeartbeat(deviceName: deviceName, tcpPort: tcpPort);
+    _sendMultiNetworkHeartbeat(
+      deviceName: deviceName,
+      httpPort: httpPort,
+      transportMethod: transportMethod,
+    );
 
     _running = true;
     print('多网络UDP发现服务已启动，在 ${_listeners.length} 个网络接口上监听');
@@ -135,7 +144,11 @@ class MultiNetworkUdpDiscoveryService {
   }
 
   /// 在多网络上发送心跳
-  void _sendMultiNetworkHeartbeat({required String deviceName, required int tcpPort}) {
+  void _sendMultiNetworkHeartbeat({
+    required String deviceName,
+    required int httpPort,
+    String transportMethod = 'HTTP',
+  }) {
     if (_broadcasters.isEmpty) return;
 
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -143,7 +156,8 @@ class MultiNetworkUdpDiscoveryService {
       'Device_ID': _selfDeviceId,
       'Device_OS': _platformOs(),
       'Device_Name': deviceName,
-      'TCP_Port': tcpPort,
+      'Transport_Method': transportMethod,
+      'HTTP_Port': httpPort,
       'Timestamp': now,
       'Network_Interfaces': _getNetworkInterfaceInfo(),
     });

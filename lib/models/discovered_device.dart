@@ -3,7 +3,8 @@ class DiscoveredDevice {
   final String name;
   final String os;
   final String ip; // IPv4 地址
-  final int tcpPort;
+  final int httpPort; // HTTP 端口
+  final String transportMethod; // 传输方式：HTTP
   int lastSeenMs; // 最后一次收到心跳的时间（毫秒时间戳）
   final String? networkInterface; // 网络接口名称
   final String? networkType; // 网络类型
@@ -13,8 +14,9 @@ class DiscoveredDevice {
     required this.name,
     required this.os,
     required this.ip,
-    required this.tcpPort,
+    required this.httpPort,
     required this.lastSeenMs,
+    this.transportMethod = 'HTTP',
     this.networkInterface,
     this.networkType,
   });
@@ -30,12 +32,17 @@ class DiscoveredDevice {
       // print('接收到设备时间戳: $receivedTimestamp, 当前时间: $now, 时间差: ${now - receivedTimestamp}ms');
     }
     
+    // 获取传输方式和对应的端口
+    final transportMethod = json['Transport_Method'] as String? ?? 'HTTP';
+    final httpPort = (json['HTTP_Port'] as num?)?.toInt() ?? 30071;
+    
     return DiscoveredDevice(
       id: json['Device_ID'] as String,
       name: json['Device_Name'] as String? ?? 'Unknown',
       os: json['Device_OS'] as String? ?? 'unknown',
       ip: ip,
-      tcpPort: (json['TCP_Port'] as num?)?.toInt() ?? 30071,
+      httpPort: httpPort,
+      transportMethod: transportMethod,
       lastSeenMs: now, // 总是使用当前时间，确保时间戳正确
       networkInterface: json['Network_Interface'] as String?,
       networkType: json['Network_Type'] as String?,
@@ -48,7 +55,8 @@ class DiscoveredDevice {
     String? name,
     String? os,
     String? ip,
-    int? tcpPort,
+    int? httpPort,
+    String? transportMethod,
     int? lastSeenMs,
     String? networkInterface,
     String? networkType,
@@ -58,7 +66,8 @@ class DiscoveredDevice {
       name: name ?? this.name,
       os: os ?? this.os,
       ip: ip ?? this.ip,
-      tcpPort: tcpPort ?? this.tcpPort,
+      httpPort: httpPort ?? this.httpPort,
+      transportMethod: transportMethod ?? this.transportMethod,
       lastSeenMs: lastSeenMs ?? this.lastSeenMs,
       networkInterface: networkInterface ?? this.networkInterface,
       networkType: networkType ?? this.networkType,
@@ -70,7 +79,8 @@ class DiscoveredDevice {
         'Device_Name': name,
         'Device_OS': os,
         'IP': ip,
-        'TCP_Port': tcpPort,
+        'HTTP_Port': httpPort,
+        'Transport_Method': transportMethod,
         'Timestamp': lastSeenMs,
         if (networkInterface != null) 'Network_Interface': networkInterface,
         if (networkType != null) 'Network_Type': networkType,
@@ -78,6 +88,6 @@ class DiscoveredDevice {
 
   @override
   String toString() {
-    return 'DiscoveredDevice(id: $id, name: $name, os: $os, ip: $ip, tcpPort: $tcpPort, networkInterface: $networkInterface, networkType: $networkType)';
+    return 'DiscoveredDevice(id: $id, name: $name, os: $os, ip: $ip, httpPort: $httpPort, transportMethod: $transportMethod, networkInterface: $networkInterface, networkType: $networkType)';
   }
 }

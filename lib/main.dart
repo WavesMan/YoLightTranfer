@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:yolighttransfer/pages/device_discovery_screen.dart';
-import 'package:yolighttransfer/pages/settings_screen.dart';
 import 'package:yolighttransfer/pages/profile_screen.dart';
 import 'package:yolighttransfer/pages/config_screen.dart';
 import 'package:yolighttransfer/pages/transfer_log_screen.dart';
@@ -14,9 +13,8 @@ import 'package:yolighttransfer/services/discovery/multi_network_udp_discovery_s
 import 'package:yolighttransfer/services/device/device_name_service.dart';
 import 'package:yolighttransfer/services/file_picker/file_picker_factory.dart';
 import 'package:yolighttransfer/services/network/firewall_checker.dart';
-import 'package:yolighttransfer/services/network/connectivity_tester.dart';
 import 'package:yolighttransfer/services/font/font_manager.dart';
-import 'package:yolighttransfer/services/tcp/enhanced_tcp_transfer_server.dart';
+import 'package:yolighttransfer/services/http/http_transfer_manager.dart';
 import 'package:yolighttransfer/services/transfer/transfer_log_manager.dart';
 import 'package:yolighttransfer/services/config/app_config_service.dart';
 import 'package:yolighttransfer/widgets/file_receive_dialog.dart';
@@ -32,7 +30,10 @@ void main() async {
         ChangeNotifierProvider(create: (_) => DeviceManager()),
         ChangeNotifierProvider(create: (_) => TransferTaskManager()),
         ChangeNotifierProvider(create: (_) => TransferLogManager()),
-        Provider(create: (_) => EnhancedTcpTransferServer()),
+        Provider(create: (context) => HttpTransferManager(
+          logManager: context.read<TransferLogManager>(),
+          taskManager: context.read<TransferTaskManager>(),
+        )),
         Provider(create: (_) => AppConfigService()),
       ],
       child: const YoLightTransferApp(),
@@ -88,8 +89,9 @@ class _MainScreenState extends State<MainScreen> {
   // UDP 发现服务实例（应用前台时保持运行）
   MultiNetworkUdpDiscoveryService? _discovery;
   
-  // TCP 传输服务器实例
-  EnhancedTcpTransferServer? _tcpServer;
+  
+  // HTTP 传输管理器实例
+  HttpTransferManager? _httpTransferManager;
   
   // 传输日志管理器
   TransferLogManager? _logManager;
@@ -113,18 +115,32 @@ class _MainScreenState extends State<MainScreen> {
       _logManager = context.read<TransferLogManager>();
       await _logManager!.initialize();
       
-      // 启动TCP传输服务器
-      _tcpServer = context.read<EnhancedTcpTransferServer>();
-      _tcpServer!.setLogManager(_logManager!);
-      _tcpServer!.setFileTransferRequestCallback(_handleFileTransferRequest);
-      await _tcpServer!.start(30071);
-      print('=== TCP服务器启动 ===');
-      print('TCP服务器已启动在端口: 30071');
-      print('==================');
+      // 初始化 HTTP 传输管理器
+      _httpTransferManager = context.read<HttpTransferManager>();
+      _httpTransferManager!.onLog = (message) {
+        print(message);
+      };
+      
+      // 设置文件接收确认回调
+      _httpTransferManager!.onReceiveConfirmation = _handleFileTransferRequest;
+      
+      // 启动 HTTP 服务器（接收端）
+      final httpServerStarted = await _httpTransferManager!.startServer(
+        port: 30071,
+        uploadDir: '/YoLightTransfer',
+      );
+      
+      if (httpServerStarted) {
+        print('=== HTTP服务器启动 ===');
+        print('HTTP服务器已启动在端口: 30071');
+        print('==================');
+      } else {
+        print('❌ HTTP服务器启动失败');
+      }
       
       // 获取动态设备名称
       final deviceName = await DeviceNameService.getDeviceName();
-      _discovery!.start(deviceName: deviceName, tcpPort: 30071);
+      _discovery!.start(deviceName: deviceName, httpPort: 30071);
       
       // 应用启动时申请文件访问权限
       _requestFilePermissions();
@@ -141,7 +157,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void dispose() {
     _discovery?.stop();
-    _tcpServer?.stop();
+    _httpTransferManager?.dispose();
     _pageController.dispose();
     super.dispose();
   }

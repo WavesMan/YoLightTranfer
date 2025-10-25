@@ -36,6 +36,8 @@ class UdpDiscoveryService {
   Future<void> start({
     required String deviceName,
     required int tcpPort,
+    int? httpPort,
+    String transportMethod = 'TCP',
   }) async {
     if (!isSupported) return;
     if (_running) return;
@@ -57,11 +59,21 @@ class UdpDiscoveryService {
 
     // 周期性发送心跳
     _broadcastTimer = Timer.periodic(heartbeatInterval, (_) {
-      _sendHeartbeat(deviceName: deviceName, tcpPort: tcpPort);
+      _sendHeartbeat(
+        deviceName: deviceName,
+        tcpPort: tcpPort,
+        httpPort: httpPort,
+        transportMethod: transportMethod,
+      );
     });
 
     // 立即发送一次心跳，加速首轮发现
-    _sendHeartbeat(deviceName: deviceName, tcpPort: tcpPort);
+    _sendHeartbeat(
+      deviceName: deviceName,
+      tcpPort: tcpPort,
+      httpPort: httpPort,
+      transportMethod: transportMethod,
+    );
 
     _running = true;
   }
@@ -76,7 +88,12 @@ class UdpDiscoveryService {
     _running = false;
   }
 
-  void _sendHeartbeat({required String deviceName, required int tcpPort}) {
+  void _sendHeartbeat({
+    required String deviceName,
+    required int tcpPort,
+    int? httpPort,
+    String transportMethod = 'TCP',
+  }) {
     final socket = _broadcaster;
     final id = _selfDeviceId;
     if (socket == null || id == null) return;
@@ -86,7 +103,9 @@ class UdpDiscoveryService {
       'Device_ID': id,
       'Device_OS': _platformOs(),
       'Device_Name': deviceName,
+      'Transport_Method': transportMethod,
       'TCP_Port': tcpPort,
+      if (httpPort != null) 'HTTP_Port': httpPort,
       'Timestamp': now,
     });
 

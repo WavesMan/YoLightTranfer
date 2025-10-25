@@ -93,6 +93,42 @@ class TransferLogManager extends ChangeNotifier {
     _addLog(log);
   }
 
+  /// 更新传输进度日志（不添加新日志，只更新现有日志）
+  void updateProgressLog({
+    required String fileName,
+    required int progress,
+    String? transferSpeed,
+    String? estimatedTime,
+  }) {
+    // 查找该文件的进度日志
+    final logIndex = _logs.indexWhere((log) => 
+      log.fileName == fileName && 
+      (log.type == TransferLogType.send || log.type == TransferLogType.receive) &&
+      log.progress != null
+    );
+    
+    if (logIndex != -1) {
+      // 更新现有日志
+      final oldLog = _logs[logIndex];
+      final updatedLog = TransferLog.progress(
+        id: oldLog.id,
+        type: oldLog.type,
+        fileName: fileName,
+        progress: progress,
+        transferSpeed: transferSpeed,
+        estimatedTime: estimatedTime,
+      );
+      _logs[logIndex] = updatedLog;
+      
+      // 保存到文件并通知监听器
+      _saveLogs();
+      notifyListeners();
+      
+      // 打印更新信息到控制台
+      print('📊 更新进度: $fileName - $progress% ${transferSpeed != null ? '($transferSpeed)' : ''}');
+    }
+  }
+
   /// 添加传输完成日志
   void addCompleteLog({
     required String logId,

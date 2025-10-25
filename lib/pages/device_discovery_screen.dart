@@ -1,20 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:yolighttransfer/theme/app_theme.dart';
 import 'package:yolighttransfer/theme/app_spacing.dart';
 import 'package:yolighttransfer/theme/app_border_radius.dart';
 import 'package:yolighttransfer/widgets/device_card.dart';
 import 'package:yolighttransfer/widgets/file_selection_area.dart';
 import 'package:yolighttransfer/widgets/transfer_task_item.dart';
 import 'package:yolighttransfer/widgets/section_card.dart';
-import 'package:yolighttransfer/widgets/file_receive_dialog.dart';
 import 'package:yolighttransfer/services/device/device_manager.dart';
 import 'package:yolighttransfer/services/transfer/transfer_task_manager.dart';
-import 'package:yolighttransfer/services/transfer/transfer_log_manager.dart';
-import 'package:yolighttransfer/services/tcp/enhanced_tcp_transfer_server.dart';
 import 'package:yolighttransfer/models/device.dart' as ui;
-import 'package:yolighttransfer/models/discovered_device.dart';
-import 'package:yolighttransfer/models/transfer_log.dart';
 
 class DeviceDiscoveryScreen extends StatefulWidget {
   const DeviceDiscoveryScreen({super.key});
@@ -24,80 +18,9 @@ class DeviceDiscoveryScreen extends StatefulWidget {
 }
 
 class _DeviceDiscoveryScreenState extends State<DeviceDiscoveryScreen> {
-  EnhancedTcpTransferServer? _tcpServer;
-  TransferLogManager? _logManager;
-
   @override
   void initState() {
     super.initState();
-    // 延后到首帧后启动，确保 Provider 可用
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _setupFileTransferRequestCallback();
-    });
-  }
-
-  /// 设置文件传输请求回调
-  void _setupFileTransferRequestCallback() {
-    final tcpServer = context.read<EnhancedTcpTransferServer>();
-    final logManager = context.read<TransferLogManager>();
-    
-    _tcpServer = tcpServer;
-    _logManager = logManager;
-    
-    // 设置文件传输请求回调
-    tcpServer.setFileTransferRequestCallback(_handleFileTransferRequest);
-  }
-
-  /// 处理文件传输请求
-  Future<bool> _handleFileTransferRequest(
-    String senderDeviceName,
-    String fileName,
-    int fileSize,
-  ) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => FileReceiveDialog(
-        senderDeviceName: senderDeviceName,
-        fileName: fileName,
-        fileSize: fileSize,
-        onAccept: () => Navigator.of(context).pop(true),
-        onReject: () => Navigator.of(context).pop(false),
-        onDismiss: () => Navigator.of(context).pop(false),
-      ),
-    );
-
-    // 记录接收请求日志
-    if (result == true) {
-      _logManager?.addReceiveStartLog(
-        fileName: fileName,
-        fileSize: fileSize,
-        savePath: '', // 保存路径将在实际接收时确定
-        sourceDevice: DiscoveredDevice(
-          id: 'unknown_${senderDeviceName.hashCode}',
-          name: senderDeviceName,
-          os: 'unknown',
-          ip: 'unknown',
-          tcpPort: 0,
-          lastSeenMs: DateTime.now().millisecondsSinceEpoch,
-        ),
-      );
-    } else {
-      _logManager?.addErrorLog(
-        type: TransferLogType.receive,
-        fileName: fileName,
-        error: '用户拒绝了文件传输请求',
-        sourceDevice: DiscoveredDevice(
-          id: 'unknown_${senderDeviceName.hashCode}',
-          name: senderDeviceName,
-          os: 'unknown',
-          ip: 'unknown',
-          tcpPort: 0,
-          lastSeenMs: DateTime.now().millisecondsSinceEpoch,
-        ),
-      );
-    }
-
-    return result ?? false;
   }
 
   @override
