@@ -67,12 +67,32 @@ class TransferTaskItem extends StatelessWidget {
                   borderRadius: BorderRadius.circular(AppBorderRadius.s),
                 ),
                 const SizedBox(height: AppSpacing.xs),
-                // 状态文本
-                Text(
-                  statusText,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: statusColor,
-                  ),
+                // 状态文本和网速信息
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 第一行：状态文本
+                    Text(
+                      statusText,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: statusColor,
+                      ),
+                    ),
+                    // 第二行：网速和剩余时间
+                    if (task.estimatedTime != null && task.estimatedTime!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          task.estimatedTime!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),

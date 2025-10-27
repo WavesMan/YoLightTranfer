@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:yolighttransfer/models/transfer_state.dart';
-import 'package:yolighttransfer/services/file/enhanced_file_hash_service.dart';
+import 'package:yolighttransfer/services/file/smart_hash_service.dart';
 
 /// 传输恢复信息
 class TransferRecoveryInfo {
@@ -202,7 +202,7 @@ class TransferRecoveryService {
 
       // 验证文件哈希（如果文件较大，可以跳过或使用增量验证）
       if (info.bytesTransferred > 0 && info.bytesTransferred < 10 * 1024 * 1024) {
-        final actualHash = await EnhancedFileHashService.calculateFileHash(info.filePath);
+        final actualHash = await SmartHashService.calculateFileHash(info.filePath);
         if (actualHash != info.fileHash) {
           print('文件哈希不匹配: 预期 ${info.fileHash}, 实际 $actualHash');
           return false;

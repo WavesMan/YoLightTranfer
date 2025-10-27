@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:yolighttransfer/util/transfer_protocol.dart';
-import 'package:yolighttransfer/services/file/enhanced_file_hash_service.dart';
+import 'package:yolighttransfer/services/file/file_size_verification_service.dart';
 import 'package:yolighttransfer/services/file/download_path_service.dart';
 import 'package:yolighttransfer/services/transfer/transfer_log_manager.dart';
 import 'package:yolighttransfer/services/transfer/transfer_task_manager.dart';
@@ -206,79 +206,108 @@ class HttpTransferServer {
 
       // 流式接收数据
       int receivedBytes = startByte;
+      int lastUpdateProgress = 0; // 记录上次更新的进度，避免过度更新
+      int lastSpeedUpdateTime = DateTime.now().millisecondsSinceEpoch;
+      int lastSpeedUpdateBytes = startByte;
+      
       await request.forEach((chunk) {
         session.writeChunk(chunk);
         receivedBytes += chunk.length;
         
-        // 更新进度日志
+        // 计算当前进度
         final progress = ((receivedBytes) / fileSize * 100).toInt();
-        if (receivedBytes == chunk.length) {
-          // 第一个数据块时，添加进度日志
-          final logId = '${DateTime.now().millisecondsSinceEpoch}_receive_$fileName';
-          _progressLogIds[fileName] = logId;
-          logManager?.addProgressLog(
-            logId: logId,
-            type: TransferLogType.receive,
+        
+        // 只在进度百分比变化时更新（优化频率）
+        if (progress != lastUpdateProgress) {
+          final transferredSizeStr = _formatBytes(receivedBytes);
+          
+          // 计算网速
+          final currentTime = DateTime.now().millisecondsSinceEpoch;
+          final timeDiff = currentTime - lastSpeedUpdateTime;
+          final bytesDiff = receivedBytes - lastSpeedUpdateBytes;
+          
+          String transferSpeed = '计算中...';
+          if (timeDiff > 0) {
+            final speedBytesPerSecond = (bytesDiff / (timeDiff / 1000)).toInt();
+            transferSpeed = _formatSpeed(speedBytesPerSecond);
+          }
+          
+          // 更新进度日志
+          if (receivedBytes == chunk.length) {
+            // 第一个数据块时，添加进度日志
+            final logId = '${DateTime.now().millisecondsSinceEpoch}_receive_$fileName';
+            _progressLogIds[fileName] = logId;
+            logManager?.addProgressLog(
+              logId: logId,
+              type: TransferLogType.receive,
+              fileName: fileName,
+              progress: progress,
+              transferSpeed: transferSpeed,
+            );
+          } else {
+            // 之后的数据块，更新进度日志
+            logManager?.updateProgressLog(
+              fileName: fileName,
+              progress: progress,
+              transferSpeed: transferSpeed,
+            );
+          }
+          
+          // 关键修复：同时更新 TaskManager 的进度
+          taskManager?.updateProgress(
             fileName: fileName,
             progress: progress,
+            transferredSize: transferredSizeStr,
+            eta: transferSpeed,
           );
-        } else {
-          // 之后的数据块，更新进度日志
-          logManager?.updateProgressLog(
-            fileName: fileName,
-            progress: progress,
-          );
+          
+          lastUpdateProgress = progress;
+          lastSpeedUpdateTime = currentTime;
+          lastSpeedUpdateBytes = receivedBytes;
         }
       });
 
       // 关闭文件
       session.close();
 
-      // 验证文件哈希
-      final fileHash = request.headers.value(HttpTransferProtocol.HEADER_FILE_HASH);
-      if (fileHash != null) {
-        // 添加短暂延迟，确保文件完全写入磁盘
-        await Future.delayed(Duration(milliseconds: 100));
+      // 验证文件大小（快速且内存友好）
+      await Future.delayed(Duration(milliseconds: 100)); // 确保文件完全写入磁盘
+      
+      final sizeValid = await FileSizeVerificationService.verifyFileSize(session.filePath, fileSize);
+      
+      if (!sizeValid) {
+        // 文件大小校验失败
+        final failMsg = '❌ 文件大小校验失败: $fileName';
+        print(failMsg);
         
-        final actualHash = await EnhancedFileHashService.calculateFileHash(session.filePath);
-        
-        // 添加详细的哈希验证日志
-        print('🔍 哈希验证: 期望=$fileHash, 实际=$actualHash');
-        
-        if (actualHash != fileHash) {
-          // 哈希校验失败
-          final failMsg = '❌ 文件一致性校验失败: $fileName';
-          print(failMsg);
-          
-          // 记录哈希校验失败日志
-          logManager?.addHashLog(
-            message: failMsg,
-            fileName: fileName,
-            expectedHash: fileHash,
-            actualHash: actualHash,
-            hashValid: false,
-          );
-          
-          request.response.statusCode = 409;
-          request.response.write('Hash mismatch: expected=$fileHash, actual=$actualHash');
-          await request.response.close();
-          _activeSessions.remove(fileName);
-          return;
-        }
-        
-        // 哈希校验通过
-        final successMsg = '✅ 文件一致性校验通过: $fileName';
-        print(successMsg);
-        
-        // 记录哈希校验成功日志
+        // 记录校验失败日志
         logManager?.addHashLog(
-          message: successMsg,
+          message: failMsg,
           fileName: fileName,
-          expectedHash: fileHash,
-          actualHash: actualHash,
-          hashValid: true,
+          expectedHash: '文件大小: ${_formatBytes(fileSize)}',
+          actualHash: '文件大小不匹配',
+          hashValid: false,
         );
+        
+        request.response.statusCode = 409;
+        request.response.write('File size mismatch');
+        await request.response.close();
+        _activeSessions.remove(fileName);
+        return;
       }
+      
+      // 文件大小校验通过
+      final successMsg = '✅ 文件大小校验通过: $fileName (${_formatBytes(fileSize)})';
+      print(successMsg);
+      
+      // 记录校验成功日志
+      logManager?.addHashLog(
+        message: successMsg,
+        fileName: fileName,
+        expectedHash: '文件大小: ${_formatBytes(fileSize)}',
+        actualHash: '文件大小匹配',
+        hashValid: true,
+      );
 
       // 记录接收完成日志
       logManager?.addCompleteLog(
@@ -381,6 +410,15 @@ class HttpTransferServer {
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+  /// 格式化网速
+  String _formatSpeed(int bytesPerSecond) {
+    if (bytesPerSecond < 1024) return '$bytesPerSecond B/s';
+    if (bytesPerSecond < 1024 * 1024) {
+      return '${(bytesPerSecond / 1024).toStringAsFixed(1)} KB/s';
+    }
+    return '${(bytesPerSecond / (1024 * 1024)).toStringAsFixed(1)} MB/s';
   }
 }
 

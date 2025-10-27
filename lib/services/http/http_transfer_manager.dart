@@ -75,6 +75,7 @@ class HttpTransferManager {
       serverIp: serverIp,
       serverPort: serverPort,
       logManager: _logManager,
+      taskManager: _taskManager,
     );
     _client!.onProgress = (uploadedBytes, totalBytes) {
       onProgress?.call('', uploadedBytes, totalBytes);

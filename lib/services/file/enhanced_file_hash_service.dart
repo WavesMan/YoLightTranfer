@@ -1,13 +1,9 @@
-import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 
 /// 哈希算法类型
 enum HashAlgorithm {
   sha256,
-  sha1,
-  md5,
 }
 
 /// 哈希算法扩展方法
@@ -17,10 +13,6 @@ extension HashAlgorithmExtension on HashAlgorithm {
     switch (this) {
       case HashAlgorithm.sha256:
         return 'SHA-256';
-      case HashAlgorithm.sha1:
-        return 'SHA-1';
-      case HashAlgorithm.md5:
-        return 'MD5';
     }
   }
 
@@ -29,10 +21,6 @@ extension HashAlgorithmExtension on HashAlgorithm {
     switch (this) {
       case HashAlgorithm.sha256:
         return 64;
-      case HashAlgorithm.sha1:
-        return 40;
-      case HashAlgorithm.md5:
-        return 32;
     }
   }
 }
@@ -111,7 +99,7 @@ class EnhancedFileHashService {
     }
   }
 
-  /// 获取文件的完整哈希信息（包含多种算法）
+  /// 获取文件的完整哈希信息
   static Future<Map<String, dynamic>> getFileHashInfo(String filePath) async {
     try {
       final file = File(filePath);
@@ -122,18 +110,14 @@ class EnhancedFileHashService {
       final fileSize = await file.length();
       final fileName = filePath.split(Platform.pathSeparator).last;
       
-      // 计算多种哈希值
+      // 计算SHA-256哈希值
       final sha256Hash = await calculateFileHash(filePath, algorithm: HashAlgorithm.sha256);
-      final sha1Hash = await calculateFileHash(filePath, algorithm: HashAlgorithm.sha1);
-      final md5Hash = await calculateFileHash(filePath, algorithm: HashAlgorithm.md5);
       
       return {
         'filePath': filePath,
         'fileName': fileName,
         'fileSize': fileSize,
         'sha256': sha256Hash,
-        'sha1': sha1Hash,
-        'md5': md5Hash,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
         'fileSizeText': _formatFileSize(fileSize),
       };
@@ -229,13 +213,9 @@ class EnhancedFileHashService {
              RegExp(r'^[a-fA-F0-9]+$').hasMatch(hash);
     }
     
-    // 自动检测算法
+    // 自动检测算法 - 仅支持SHA-256
     if (hash.length == HashAlgorithm.sha256.length) {
       return RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(hash);
-    } else if (hash.length == HashAlgorithm.sha1.length) {
-      return RegExp(r'^[a-fA-F0-9]{40}$').hasMatch(hash);
-    } else if (hash.length == HashAlgorithm.md5.length) {
-      return RegExp(r'^[a-fA-F0-9]{32}$').hasMatch(hash);
     }
     
     return false;
@@ -246,10 +226,6 @@ class EnhancedFileHashService {
     switch (algorithm) {
       case HashAlgorithm.sha256:
         return 'SHA-256 (256位，64字符) - 推荐用于文件完整性验证';
-      case HashAlgorithm.sha1:
-        return 'SHA-1 (160位，40字符) - 较旧算法，不推荐用于安全场景';
-      case HashAlgorithm.md5:
-        return 'MD5 (128位，32字符) - 已不安全的算法，仅用于简单校验';
     }
   }
 
@@ -273,10 +249,6 @@ class EnhancedFileHashService {
     switch (algorithm) {
       case HashAlgorithm.sha256:
         return sha256.bind(stream);
-      case HashAlgorithm.sha1:
-        return sha1.bind(stream);
-      case HashAlgorithm.md5:
-        return md5.bind(stream);
     }
   }
 
@@ -285,10 +257,6 @@ class EnhancedFileHashService {
     switch (algorithm) {
       case HashAlgorithm.sha256:
         return sha256;
-      case HashAlgorithm.sha1:
-        return sha1;
-      case HashAlgorithm.md5:
-        return md5;
     }
   }
 
@@ -298,11 +266,6 @@ class EnhancedFileHashService {
       case 'sha256':
       case 'sha-256':
         return HashAlgorithm.sha256;
-      case 'sha1':
-      case 'sha-1':
-        return HashAlgorithm.sha1;
-      case 'md5':
-        return HashAlgorithm.md5;
       default:
         return HashAlgorithm.sha256;
     }

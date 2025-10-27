@@ -3,8 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:yolighttransfer/util/transfer_protocol.dart';
-import 'package:yolighttransfer/services/file/enhanced_file_hash_service.dart';
+import 'package:yolighttransfer/services/file/file_size_verification_service.dart';
 import 'package:yolighttransfer/services/file/cache_cleanup_service.dart';
+import 'package:yolighttransfer/services/transfer/transfer_task_manager.dart';
 
 /// HTTP 文件传输客户端（发送端）
 /// 支持流式上传、断点续传等功能
@@ -16,13 +17,15 @@ class HttpTransferClient {
   void Function(int uploadedBytes, int totalBytes)? onProgress;
   void Function(String message)? onLog;
   
-  // 日志管理器（可选）
+  // 日志管理器和任务管理器（可选）
   dynamic logManager;
+  TransferTaskManager? taskManager;
 
   HttpTransferClient({
     required this.serverIp,
     required this.serverPort,
     this.logManager,
+    this.taskManager,
   });
 
   /// 获取基础URL
@@ -47,12 +50,8 @@ class HttpTransferClient {
       _log('📤 开始上传文件: $fileName');
       _log('📊 文件大小: ${_formatBytes(fileSize)}');
 
-      // 计算文件哈希
-      _log('🔐 计算文件哈希...');
-      final stopwatch = Stopwatch()..start();
-      final fileHash = await EnhancedFileHashService.calculateFileHash(filePath);
-      stopwatch.stop();
-      _log('✅ 文件哈希: $fileHash (耗时: ${stopwatch.elapsedMilliseconds}ms)');
+      // 使用文件大小校验（快速且内存友好）
+      _log('📏 文件大小校验: ${_formatBytes(fileSize)}');
 
       // 查询已上传的字节数（用于断点续传）
       int startByte = 0;
@@ -67,7 +66,6 @@ class HttpTransferClient {
       final success = await _uploadStream(
         filePath: filePath,
         fileName: fileName,
-        fileHash: fileHash,
         fileSize: fileSize,
         startByte: startByte,
         maxRetries: maxRetries,
@@ -91,7 +89,6 @@ class HttpTransferClient {
   Future<bool> _uploadStream({
     required String filePath,
     required String fileName,
-    required String fileHash,
     required int fileSize,
     required int startByte,
     required int maxRetries,
@@ -113,7 +110,6 @@ class HttpTransferClient {
         final encodedFileName = Uri.encodeComponent(fileName);
         request.headers.set(HttpTransferProtocol.HEADER_FILE_NAME, encodedFileName);
         request.headers.set(HttpTransferProtocol.HEADER_FILE_SIZE, fileSize.toString());
-        request.headers.set(HttpTransferProtocol.HEADER_FILE_HASH, fileHash);
         request.headers.set('Content-Type', 'application/octet-stream');
         
         // 如果是断点续传，添加 Range 头
@@ -128,45 +124,86 @@ class HttpTransferClient {
 
         // 流式发送文件数据，同时跟踪进度
         int uploadedBytes = startByte;
+        int lastUpdateProgress = 0; // 记录上次更新的进度，避免过度更新
+        int lastQueryTime = DateTime.now().millisecondsSinceEpoch;
+        int lastQueryBytes = startByte;
+        
+        // 启动后台任务定期查询服务器已接收的字节数（网络流进度）
+        Timer? statusQueryTimer;
+        statusQueryTimer = Timer.periodic(Duration(milliseconds: 200), (timer) async {
+          try {
+            final status = await queryStatus(fileName);
+            if (status != null && status.containsKey('receivedBytes')) {
+              final serverReceivedBytes = status['receivedBytes'] as int;
+              final progress = (serverReceivedBytes / fileSize * 100).toInt();
+              
+              // 计算网速
+              final currentTime = DateTime.now().millisecondsSinceEpoch;
+              final timeDiff = currentTime - lastQueryTime;
+              final bytesDiff = serverReceivedBytes - lastQueryBytes;
+              
+              String transferSpeed = '计算中...';
+              if (timeDiff > 0) {
+                final speedBytesPerSecond = (bytesDiff / (timeDiff / 1000)).toInt();
+                transferSpeed = _formatSpeed(speedBytesPerSecond);
+              }
+              
+              // 更新进度和网速
+              final transferredSizeStr = _formatBytes(serverReceivedBytes);
+              taskManager?.updateProgress(
+                fileName: fileName,
+                progress: progress,
+                transferredSize: transferredSizeStr,
+                eta: transferSpeed,
+              );
+              
+              logManager?.updateProgressLog(
+                fileName: fileName,
+                progress: progress,
+                transferSpeed: transferSpeed,
+              );
+              
+              lastQueryTime = currentTime;
+              lastQueryBytes = serverReceivedBytes;
+            }
+          } catch (e) {
+            // 查询失败，继续
+          }
+        });
+        
         await stream.listen(
           (chunk) {
             request.add(chunk);
             uploadedBytes += chunk.length;
             
-            // 更新进度
-            onProgress?.call(uploadedBytes, fileSize);
-            
-            // 更新进度日志
-            final progress = (uploadedBytes / fileSize * 100).toInt();
-            if (uploadedBytes == chunk.length + startByte) {
-              // 第一个数据块时，添加进度日志
-              logManager?.addProgressLog(
-                logId: '${DateTime.now().millisecondsSinceEpoch}_send_$fileName',
-                type: 'send',
-                fileName: fileName,
-                progress: progress,
-              );
-            } else {
-              // 之后的数据块，更新进度日志
-              logManager?.updateProgressLog(
-                fileName: fileName,
-                progress: progress,
-              );
-            }
+            // 不再通过 onProgress 回调显示文件读取进度
+            // 只通过后台查询任务显示网络传输进度
           },
           onDone: () async {
             // 流完成，关闭请求
           },
           onError: (error) {
             _log('❌ 流读取错误: $error');
+            statusQueryTimer?.cancel();
             throw error;
           },
           cancelOnError: true,
         ).asFuture();
 
         final response = await request.close();
+        
+        // 停止查询任务
+        statusQueryTimer?.cancel();
 
         if (response.statusCode == 200) {
+          // 上传完成，更新为 100%
+          taskManager?.updateProgress(
+            fileName: fileName,
+            progress: 100,
+            transferredSize: _formatBytes(fileSize),
+            eta: '0 B/s',
+          );
+          
           _log('✅ 流式上传完成: $fileName');
           return true;
         } else if (response.statusCode == 403) {
@@ -236,6 +273,15 @@ class HttpTransferClient {
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(2)} KB';
     if (bytes < 1024 * 1024 * 1024) return '${(bytes / 1024 / 1024).toStringAsFixed(2)} MB';
     return '${(bytes / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
+  }
+
+  /// 格式化网速
+  String _formatSpeed(int bytesPerSecond) {
+    if (bytesPerSecond < 1024) return '$bytesPerSecond B/s';
+    if (bytesPerSecond < 1024 * 1024) {
+      return '${(bytesPerSecond / 1024).toStringAsFixed(1)} KB/s';
+    }
+    return '${(bytesPerSecond / (1024 * 1024)).toStringAsFixed(1)} MB/s';
   }
 
   /// 获取设备名称

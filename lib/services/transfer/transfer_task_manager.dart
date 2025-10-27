@@ -81,17 +81,117 @@ class TransferTaskManager extends ChangeNotifier {
     final idx = _tasks.indexWhere((t) => t.fileName == fileName);
     if (idx == -1) return;
     final t = _tasks[idx];
+    
+    // 计算剩余时间
+    String estimatedTimeRemaining = '计算中...';
+    if (eta != null && eta.contains('/s') && progress > 0 && progress < 100) {
+      estimatedTimeRemaining = _calculateRemainingTime(t.totalSize, transferredSize ?? t.transferredSize, eta);
+    }
+    
     _tasks[idx] = ui.TransferTask(
       fileName: t.fileName,
       progress: progress,
       totalSize: t.totalSize,
       transferredSize: transferredSize ?? t.transferredSize,
       status: ui.TransferStatus.transferring,
-      estimatedTime: eta ?? t.estimatedTime,
+      estimatedTime: '${ eta ?? t.estimatedTime}\n$estimatedTimeRemaining',
       targetDevice: t.targetDevice,
       fileInfo: t.fileInfo,
     );
     notifyListeners();
+  }
+
+  /// 计算剩余时间
+  String _calculateRemainingTime(String totalSize, String transferredSize, String speed) {
+    try {
+      // 解析总大小
+      final totalBytes = _parseBytes(totalSize);
+      // 解析已传输大小
+      final transferredBytes = _parseBytes(transferredSize);
+      // 解析网速
+      final speedBytesPerSecond = _parseSpeed(speed);
+      
+      if (totalBytes <= 0 || speedBytesPerSecond <= 0) {
+        return '计算中...';
+      }
+      
+      final remainingBytes = totalBytes - transferredBytes;
+      if (remainingBytes <= 0) {
+        return '即将完成';
+      }
+      
+      final remainingSeconds = remainingBytes / speedBytesPerSecond;
+      return '剩余: ${_formatDuration(remainingSeconds.toInt())}';
+    } catch (e) {
+      return '计算中...';
+    }
+  }
+
+  /// 解析字节大小字符串
+  int _parseBytes(String sizeStr) {
+    try {
+      final parts = sizeStr.trim().split(' ');
+      if (parts.length < 2) return 0;
+      
+      final value = double.parse(parts[0]);
+      final unit = parts[1].toUpperCase();
+      
+      switch (unit) {
+        case 'B':
+          return value.toInt();
+        case 'KB':
+          return (value * 1024).toInt();
+        case 'MB':
+          return (value * 1024 * 1024).toInt();
+        case 'GB':
+          return (value * 1024 * 1024 * 1024).toInt();
+        default:
+          return 0;
+      }
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// 解析网速字符串
+  int _parseSpeed(String speedStr) {
+    try {
+      final parts = speedStr.trim().split(' ');
+      if (parts.length < 2) return 0;
+      
+      final value = double.parse(parts[0]);
+      final unit = parts[1].toUpperCase();
+      
+      switch (unit) {
+        case 'B/S':
+          return value.toInt();
+        case 'KB/S':
+          return (value * 1024).toInt();
+        case 'MB/S':
+          return (value * 1024 * 1024).toInt();
+        case 'GB/S':
+          return (value * 1024 * 1024 * 1024).toInt();
+        default:
+          return 0;
+      }
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// 格式化时间
+  String _formatDuration(int seconds) {
+    if (seconds < 60) {
+      return '${seconds}秒';
+    } else if (seconds < 3600) {
+      final minutes = seconds ~/ 60;
+      final secs = seconds % 60;
+      return '${minutes}分${secs}秒';
+    } else {
+      final hours = seconds ~/ 3600;
+      final minutes = (seconds % 3600) ~/ 60;
+      return '${hours}小时${minutes}分';
+    }
   }
 
   void markCompleted(String fileName) {

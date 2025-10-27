@@ -120,9 +120,11 @@ class TransferLogManager extends ChangeNotifier {
       );
       _logs[logIndex] = updatedLog;
       
-      // 保存到文件并通知监听器
-      _saveLogs();
+      // 立即通知监听器（不阻塞进度更新）
       notifyListeners();
+      
+      // 异步保存到文件（不阻塞进度更新）
+      _saveLogsAsync();
       
       // 打印更新信息到控制台
       print('📊 更新进度: $fileName - $progress% ${transferSpeed != null ? '($transferSpeed)' : ''}');
@@ -380,6 +382,20 @@ class TransferLogManager extends ChangeNotifier {
     } catch (e) {
       print('保存传输日志失败: $e');
     }
+  }
+
+  /// 异步保存日志到文件（不阻塞进度更新）
+  /// 使用节流机制避免过度频繁的文件写入
+  Timer? _saveLogsTimer;
+  
+  void _saveLogsAsync() {
+    // 如果已经有待处理的保存操作，则取消它
+    _saveLogsTimer?.cancel();
+    
+    // 延迟 500ms 后执行保存，这样可以合并多个更新操作
+    _saveLogsTimer = Timer(const Duration(milliseconds: 500), () {
+      _saveLogs();
+    });
   }
 
   /// 获取统计信息

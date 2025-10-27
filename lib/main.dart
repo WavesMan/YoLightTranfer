@@ -20,6 +20,9 @@ import 'package:yolighttransfer/services/config/app_config_service.dart';
 import 'package:yolighttransfer/services/file/cache_cleanup_service.dart';
 import 'package:yolighttransfer/widgets/file_receive_dialog.dart';
 import 'package:yolighttransfer/services/config/version_service.dart';
+import 'package:yolighttransfer/services/config/startup_update_service.dart';
+import 'package:yolighttransfer/services/transfer/global_dialog_manager.dart';
+import 'package:yolighttransfer/services/notification/notification_service.dart';
 
 void main() async {
   // 预加载字体
@@ -59,11 +62,15 @@ class YoLightTransferApp extends StatelessWidget {
       systemNavigationBarDividerColor: Colors.transparent,
     ));
 
+    // 获取全局弹窗管理器实例
+    final globalDialogManager = GlobalDialogManager();
+
     return MaterialApp(
       title: 'YoLightTransfer',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
+      navigatorKey: globalDialogManager.navigatorKey, // 使用全局导航键
       home: const MainScreen(),
       debugShowCheckedModeBanner: false,
       // 添加字体回退配置
@@ -106,9 +113,15 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     // 延后到首帧后启动，确保 Provider 可用
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // 初始化通知服务
+      await NotificationService().initialize();
+      
       // 初始化配置服务
       final configService = context.read<AppConfigService>();
       await configService.initialize();
+      
+      // 应用启动时检查更新
+      await _checkForUpdatesOnStartup();
       
       // 应用启动时清理过期的 cache 文件
       await _cleanupExpiredCache();
@@ -188,6 +201,17 @@ class _MainScreenState extends State<MainScreen> {
     super.dispose();
   }
 
+  /// 应用启动时检查更新
+  Future<void> _checkForUpdatesOnStartup() async {
+    try {
+      final startupUpdateService = StartupUpdateService();
+      await startupUpdateService.checkForUpdatesOnStartup(context);
+    } catch (e) {
+      // 更新检查失败不影响应用正常启动
+      print('⚠️ 启动更新检查异常: $e');
+    }
+  }
+
   /// 申请文件访问权限
   Future<void> _requestFilePermissions() async {
     try {
@@ -204,25 +228,24 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  /// 处理文件传输请求
+  /// 处理文件传输请求 - 使用全局弹窗管理器
   Future<bool> _handleFileTransferRequest(
     String senderDeviceName,
     String fileName,
     int fileSize,
   ) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => FileReceiveDialog(
-        senderDeviceName: senderDeviceName,
-        fileName: fileName,
-        fileSize: fileSize,
-        onAccept: () => Navigator.of(context).pop(true),
-        onReject: () => Navigator.of(context).pop(false),
-        onDismiss: () => Navigator.of(context).pop(false),
-      ),
+    // 生成唯一的请求ID
+    final requestId = '${DateTime.now().millisecondsSinceEpoch}_${senderDeviceName}_$fileName';
+    
+    // 使用全局弹窗管理器显示弹窗
+    final result = await GlobalDialogManager().showFileReceiveDialog(
+      requestId: requestId,
+      senderDeviceName: senderDeviceName,
+      fileName: fileName,
+      fileSize: fileSize,
     );
 
-    return result ?? false;
+    return result;
   }
 
   // 根据配置动态生成屏幕列表

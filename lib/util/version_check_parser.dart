@@ -17,12 +17,16 @@ class VersionCheckResponse {
   /// 是否强制更新（可选）
   final bool forceUpdate;
 
+  /// 结构化更新日志（可选）
+  final Changelog? changelog;
+
   VersionCheckResponse({
     required this.version,
     required this.downloadUrl,
     required this.needsUpdate,
     this.updateDescription,
     this.forceUpdate = false,
+    this.changelog,
   });
 
   @override
@@ -34,6 +38,42 @@ class VersionCheckResponse {
         'forceUpdate=$forceUpdate'
         ')';
   }
+}
+
+/// 结构化更新日志
+class Changelog {
+  /// 更新日志标题
+  final String title;
+
+  /// 更新章节列表
+  final List<ChangelogSection> sections;
+
+  /// 页脚信息（可选）
+  final String? footer;
+
+  Changelog({
+    required this.title,
+    required this.sections,
+    this.footer,
+  });
+}
+
+/// 更新日志章节
+class ChangelogSection {
+  /// 章节标题
+  final String title;
+
+  /// 章节类型
+  final String type;
+
+  /// 章节内容项
+  final List<String> items;
+
+  ChangelogSection({
+    required this.title,
+    required this.type,
+    required this.items,
+  });
 }
 
 /// 版本检查 JSON 解析器
@@ -107,6 +147,9 @@ class VersionCheckParser {
     final updateDescription = appConfig['description'] as String?;
     final forceUpdate = appConfig['force'] as bool? ?? false;
 
+    // 解析结构化更新日志（如果存在）
+    final changelog = _parseChangelog(appConfig);
+
     // 比较版本号
     final needsUpdate = _compareVersions(currentVersion, newVersion) < 0;
 
@@ -116,6 +159,7 @@ class VersionCheckParser {
       needsUpdate: needsUpdate,
       updateDescription: updateDescription,
       forceUpdate: forceUpdate,
+      changelog: changelog,
     );
   }
 
@@ -192,6 +236,93 @@ class VersionCheckParser {
       return url.startsWith('http://') || url.startsWith('https://');
     } catch (e) {
       return false;
+    }
+  }
+
+  /// 解析结构化更新日志
+  static Changelog? _parseChangelog(Map<String, dynamic> appConfig) {
+    try {
+      final changelogJson = appConfig['changelog'];
+      if (changelogJson == null) {
+        return null;
+      }
+
+      if (changelogJson is! Map<String, dynamic>) {
+        print('⚠️ changelog 字段必须是对象，忽略该字段');
+        return null;
+      }
+
+      final title = changelogJson['title'] as String?;
+      if (title == null || title.isEmpty) {
+        print('⚠️ changelog.title 字段缺失或为空，忽略 changelog');
+        return null;
+      }
+
+      final sectionsJson = changelogJson['sections'];
+      if (sectionsJson == null || sectionsJson is! List) {
+        print('⚠️ changelog.sections 字段缺失或不是数组，忽略 changelog');
+        return null;
+      }
+
+      final sections = <ChangelogSection>[];
+      for (final sectionJson in sectionsJson) {
+        if (sectionJson is! Map<String, dynamic>) {
+          print('⚠️ 章节数据格式错误，跳过该章节');
+          continue;
+        }
+
+        final sectionTitle = sectionJson['title'] as String?;
+        final sectionType = sectionJson['type'] as String?;
+        final sectionItems = sectionJson['items'] as List?;
+
+        if (sectionTitle == null || sectionTitle.isEmpty) {
+          print('⚠️ 章节标题缺失，跳过该章节');
+          continue;
+        }
+
+        if (sectionType == null || sectionType.isEmpty) {
+          print('⚠️ 章节类型缺失，跳过该章节');
+          continue;
+        }
+
+        if (sectionItems == null || sectionItems is! List) {
+          print('⚠️ 章节内容项缺失或不是数组，跳过该章节');
+          continue;
+        }
+
+        final items = <String>[];
+        for (final item in sectionItems) {
+          if (item is String) {
+            items.add(item);
+          } else {
+            print('⚠️ 章节内容项格式错误，跳过该项');
+          }
+        }
+
+        if (items.isNotEmpty) {
+          sections.add(ChangelogSection(
+            title: sectionTitle,
+            type: sectionType,
+            items: items,
+          ));
+        }
+      }
+
+      if (sections.isEmpty) {
+        print('⚠️ 没有有效的章节，忽略 changelog');
+        return null;
+      }
+
+      final footer = changelogJson['footer'] as String?;
+
+      return Changelog(
+        title: title,
+        sections: sections,
+        footer: footer,
+      );
+    } catch (e) {
+      print('⚠️ 解析结构化更新日志失败: $e，忽略该字段');
+      return null;
     }
   }
 }

@@ -1,0 +1,77 @@
+{
+  "app": {
+    "version": "0.1.1",
+    "url": "https://cloud.waveyo.cn/mirror/YoLightTransfer/index.html",
+    "description": "传统的纯文本描述（向后兼容）",
+    "changelog": {
+      "title": "YoLightTransfer v0.1.1 更新说明",
+      "sections": [
+        {
+          "title": "🚀 新功能",
+          "type": "added",
+          "items": [
+            "启动时自动检查更新",
+            "增强的更新说明显示",
+            "性能优化"
+          ]
+        },
+        {
+          "title": "🐛 问题修复",
+          "type": "fixed",
+          "items": [
+            "修复了设备发现失败问题",
+            "修复了传输进度显示问题",
+            "修复了日志页面崩溃问题"
+          ]
+        },
+        {
+          "title": "🔧 技术改进",
+          "type": "changed",
+          "items": [
+            "优化了文件传输性能",
+            "改进了设备发现机制",
+            "重构了版本检查服务"
+          ]
+        },
+        {
+          "title": "⚠️ 废弃功能",
+          "type": "deprecated",
+          "items": [
+            "移除了旧的 TCP 传输协议",
+            "废弃了过时的配置选项"
+          ]
+        },
+        {
+          "title": "🔗 联系我们",
+          "type": "info",
+          "items": [
+            "[加入我们的QQ群反馈交流](https://jq.qq.com/?_wv=1027&k=5tG6g3jE)",
+            "访问[官方网站](https://example.com)获取更多信息",
+            "在[GitHub Issues](https://github.com/example/issues)报告问题"
+          ]
+        }
+      ],
+      "footer": "感谢您使用 YoLightTransfer！建议所有用户更新到此版本以获得最佳体验。如有问题请[加入QQ群反馈](https://jq.qq.com/?_wv=1027&k=5tG6g3jE)或访问[官方网站](https://example.com)。"
+    },
+    "force": false
+  },
+  "timestamp": "2025-10-26T19:00:00Z",
+  "other_field": "可以有其他字段",
+  "platforms": {
+    "windows": {
+      "download_url": "https://cloud.waveyo.cn/mirror/YoLightTransfer/YoLightTransfer-v0.1.1_for_windows.zip",
+      "file_size": 15678900,
+      "sha256": "abc123def456..."
+    },
+    "android": {
+      "download_url": "https://cloud.waveyo.cn/mirror/YoLightTransfer/YoLightTransfer-v0.1.1_for_android.apk",
+      "file_size": 23456789,
+      "sha256": "def456abc123..."
+    }
+  },
+  "compatibility": {
+    "min_os_version": "Windows 10 / Android 8.0",
+    "supported_arch": ["x64", "arm64"],
+    "required_dependencies": []
+  }
+}

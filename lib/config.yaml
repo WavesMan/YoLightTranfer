@@ -1,19 +1,20 @@
 app:
-  version: 0.1.0
-  buildNumber: beta-001
-  checkUpdateUrl: 'http://ylt.waveyo.com.cn/api/v1/version.json'
+  version: 0.1.1
+  buildNumber: beta-002
+  checkUpdateUrl: 'https://cloud.waveyo.cn/mirror/YoLightTransfer/version.json'
+  startupUpdateCheck: true
+  updateCheckTimeout: 8
 
 about: |
-  YoLightTransfer v0.1.0
+  YoLightTransfer BETA v0.1.1
   
-  一个轻量级的跨平台文件传输工具
+  一个轻量级的局域网跨平台文件传输工具
   
   功能特性：
-  • 支持 Android、iOS、Windows 等多平台
+  • 支持 Android、Windows 等多平台
   • 快速的 UDP 设备发现
   • 高效的 HTTP 文件传输
   • 实时传输日志记录
   
-  开发者：YoLight Team
-  官网：https://example.com
-  [MD格式URL测试](https://example.com)
+  开发者：WaveYo.co
+  临时官网：https://cloud.waveyo.cn/mirror/YoLightTransfer/index.html

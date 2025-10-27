@@ -405,6 +405,8 @@ class _FileSelectionAreaState extends State<FileSelectionArea> {
     final httpClient = HttpTransferClient(
       serverIp: host,
       serverPort: port,
+      logManager: logManager,
+      taskManager: taskManager,
     );
 
     // 设置进度回调
