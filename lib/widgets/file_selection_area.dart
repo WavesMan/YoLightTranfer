@@ -331,6 +331,12 @@ class _FileSelectionAreaState extends State<FileSelectionArea> {
     
     for (final file in files) {
       try {
+        // 获取已存在的取消令牌（在添加等待任务时已创建）
+        final cancelToken = taskManager.getCancelToken(file.name);
+        if (cancelToken == null) {
+          throw Exception('取消令牌未找到，请重新添加任务');
+        }
+        
         // 更新任务状态为传输中
         taskManager.updateProgress(
           fileName: file.name,
@@ -354,7 +360,7 @@ class _FileSelectionAreaState extends State<FileSelectionArea> {
         print('====================');
 
         // 只使用 HTTP 传输
-        await _startHttpFileTransfer(file, targetDevice, taskManager, logManager);
+        await _startHttpFileTransfer(file, targetDevice, taskManager, logManager, cancelToken);
 
       } catch (e) {
         // 传输失败
@@ -393,6 +399,7 @@ class _FileSelectionAreaState extends State<FileSelectionArea> {
     DiscoveredDevice targetDevice,
     TransferTaskManager taskManager,
     TransferLogManager logManager,
+    CancelToken cancelToken,
   ) async {
     final host = targetDevice.ip;
     final port = targetDevice.httpPort!;
@@ -437,6 +444,7 @@ class _FileSelectionAreaState extends State<FileSelectionArea> {
       fileName: file.name,
       maxRetries: 3,
       resumeUpload: true,
+      cancelToken: cancelToken,
     );
 
     if (success) {

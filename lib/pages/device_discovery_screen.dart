@@ -8,6 +8,7 @@ import 'package:yolighttransfer/widgets/transfer_task_item.dart';
 import 'package:yolighttransfer/widgets/section_card.dart';
 import 'package:yolighttransfer/services/device/device_manager.dart';
 import 'package:yolighttransfer/services/transfer/transfer_task_manager.dart';
+import 'package:yolighttransfer/services/transfer/transfer_log_manager.dart';
 import 'package:yolighttransfer/models/device.dart' as ui;
 
 class DeviceDiscoveryScreen extends StatefulWidget {
@@ -225,10 +226,45 @@ class _DeviceDiscoveryScreenState extends State<DeviceDiscoveryScreen> {
                     .map((task) => TransferTaskItem(
                           task: task,
                           onCancel: () {
-                            // TODO: 实现取消传输逻辑
+                            // 实现取消传输逻辑
+                            final taskManager = context.read<TransferTaskManager>();
+                            
+                            try {
+                              final logManager = context.read<TransferLogManager>();
+                              
+                              // 取消传输
+                              taskManager.cancelTask(task.fileName);
+                              
+                              // 记录取消日志
+                              logManager.addInfoLog(
+                                message: '用户取消了文件传输: ${task.fileName}',
+                                fileName: task.fileName,
+                                device: task.targetDevice,
+                              );
+                            } catch (e) {
+                              // 如果日志管理器不可用，仅取消传输
+                              taskManager.cancelTask(task.fileName);
+                            }
+                            
+                            // 从 UI 中移除任务
+                            taskManager.removeTask(task);
+                            
+                            // 显示取消成功提示
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('已取消传输: ${task.fileName}'),
+                                backgroundColor: Colors.orange,
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
                           },
                           onRetry: () {
-                            // TODO: 实现重试传输逻辑
+                            // 实现重试传输逻辑
+                            final taskManager = context.read<TransferTaskManager>();
+                            taskManager.removeTask(task);
+                            if (task.fileInfo != null && task.targetDevice != null) {
+                              taskManager.addWaitingTask(task.fileInfo!, task.targetDevice!);
+                            }
                           },
                         ))
                     .toList(),

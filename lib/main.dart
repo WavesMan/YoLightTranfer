@@ -319,7 +319,7 @@ class _MainScreenState extends State<MainScreen> {
       print('配置服务访问失败，使用默认导航项: $e');
       return [
         _NavItemData(icon: Icons.devices, label: '设备发现'),
-        _NavItemData(icon: Icons.history, label: '传输日志'), // 默认启用传输日志页面
+        // _NavItemData(icon: Icons.history, label: '传输日志'), // 默认不启用传输日志页面
         _NavItemData(icon: Icons.settings, label: '配置'),
         _NavItemData(icon: Icons.person, label: '我的 [BETA]'),
       ];
@@ -361,10 +361,10 @@ class _MainScreenState extends State<MainScreen> {
           icon: Icon(Icons.devices),
           label: '设备发现',
         ),
-        const BottomNavigationBarItem(
-          icon: Icon(Icons.history),
-          label: '传输日志', // 默认启用传输日志页面
-        ),
+        // const BottomNavigationBarItem(
+        //   icon: Icon(Icons.history),
+        //   label: '传输日志', // 默认不启用传输日志页面
+        // ),
         const BottomNavigationBarItem(
           icon: Icon(Icons.settings),
           label: '配置',
@@ -511,18 +511,18 @@ class _MainScreenState extends State<MainScreen> {
         appBar: AppBar(
           title: Text(appBarTitles[_currentIndex]),
           centerTitle: true,
-          actions: _currentIndex == 1
-              ? [
-                  TextButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('设置已保存')),
-                      );
-                    },
-                    child: const Text('保存'),
-                  ),
-                ]
-              : null,
+          // actions: _currentIndex == 1
+          //     ? [
+          //         TextButton(
+          //           onPressed: () {
+          //             ScaffoldMessenger.of(context).showSnackBar(
+          //               const SnackBar(content: Text('设置已保存')),
+          //             );
+          //           },
+          //           child: const Text('保存'),
+          //         ),
+          //       ]
+          //     : null,
         ),
         body: PageView(
           controller: _pageController,

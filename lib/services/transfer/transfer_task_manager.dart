@@ -1,19 +1,128 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:yolighttransfer/models/transfer.dart' as ui;
 import 'package:yolighttransfer/models/file_info.dart';
 import 'package:yolighttransfer/models/discovered_device.dart';
 
+/// 改进的取消令牌实现，支持事件通知和请求中止
+class CancelToken {
+  bool _isCancelled = false;
+  final _cancelController = StreamController<void>.broadcast();
+  dynamic _currentRequest;
+  
+  bool get isCancelled => _isCancelled;
+  Stream<void> get onCancel => _cancelController.stream;
+  
+  /// 设置当前的 HTTP 请求，以便在取消时中止
+  void setCurrentRequest(dynamic request) {
+    _currentRequest = request;
+  }
+  
+  /// 取消传输
+  void cancel() {
+    if (_isCancelled) return;
+    
+    _isCancelled = true;
+    
+    // 立即中止 HTTP 请求
+    try {
+      _currentRequest?.abort();
+    } catch (e) {
+      print('中止请求失败: $e');
+    }
+    
+    // 触发取消事件
+    _cancelController.add(null);
+  }
+  
+  void throwIfCancelled() {
+    if (_isCancelled) {
+      throw Exception('传输已取消');
+    }
+  }
+  
+  /// 清理资源
+  void dispose() {
+    _cancelController.close();
+  }
+}
+
 /// 管理传输任务队列，支持等待状态和手动触发传输
 class TransferTaskManager extends ChangeNotifier {
   final _tasks = <ui.TransferTask>[];
   final _waitingTasks = <ui.TransferTask>[];
+  final _cancelTokens = <String, CancelToken>{};
+  
+  // 接收服务器引用（用于取消接收任务）
+  dynamic _httpTransferServer;
 
   List<ui.TransferTask> get tasks => List.unmodifiable(_tasks);
   List<ui.TransferTask> get waitingTasks => List.unmodifiable(_waitingTasks);
+  
+  /// 设置 HTTP 传输服务器引用
+  void setHttpTransferServer(dynamic server) {
+    _httpTransferServer = server;
+  }
+
+  /// 获取任务的取消令牌
+  CancelToken? getCancelToken(String fileName) {
+    return _cancelTokens[fileName];
+  }
+
+  /// 创建新的取消令牌
+  CancelToken createCancelToken(String fileName) {
+    final token = CancelToken();
+    _cancelTokens[fileName] = token;
+    return token;
+  }
+
+  /// 取消任务传输
+  void cancelTask(String fileName) {
+    final token = _cancelTokens[fileName];
+    if (token != null) {
+      token.cancel();
+      _cancelTokens.remove(fileName);
+      print('已取消传输任务: $fileName');
+      
+        // 更新任务状态为已取消
+        final taskIndex = _tasks.indexWhere((t) => t.fileName == fileName);
+        if (taskIndex != -1) {
+          final task = _tasks[taskIndex];
+          _tasks[taskIndex] = ui.TransferTask(
+            fileName: task.fileName,
+            progress: task.progress,
+            totalSize: task.totalSize,
+            transferredSize: task.transferredSize,
+            status: ui.TransferStatus.cancelled,
+            estimatedTime: '已取消',
+            targetDevice: task.targetDevice,
+            fileInfo: task.fileInfo,
+          );
+          notifyListeners();
+        }
+    }
+    
+    // 同时取消接收端的任务（如果有接收服务器）
+    if (_httpTransferServer != null) {
+      try {
+        _httpTransferServer.cancelReceive(fileName);
+      } catch (e) {
+        print('取消接收任务失败: $e');
+      }
+    }
+  }
+
+  /// 清理取消令牌
+  void _cleanupCancelToken(String fileName) {
+    _cancelTokens.remove(fileName);
+  }
 
   /// 添加等待传输的任务
   void addWaitingTask(FileInfo file, DiscoveredDevice targetDevice) {
+    // 为任务创建取消令牌
+    createCancelToken(file.name);
+    
     final task = ui.TransferTask(
       fileName: file.name,
       progress: 0,

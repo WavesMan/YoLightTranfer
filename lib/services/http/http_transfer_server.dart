@@ -22,6 +22,9 @@ class HttpTransferServer {
   // 正在进行的传输任务
   final Map<String, _StreamTransferSession> _activeSessions = {};
   
+  // 接收端取消令牌（用于停止接收流）
+  final Map<String, _ReceiveCancelToken> _receiveCancelTokens = {};
+  
   // 已确认的文件集合（防止重复确认）
   final Set<String> _confirmedFiles = {};
 
@@ -210,62 +213,128 @@ class HttpTransferServer {
       int lastSpeedUpdateTime = DateTime.now().millisecondsSinceEpoch;
       int lastSpeedUpdateBytes = startByte;
       
-      await request.forEach((chunk) {
-        session.writeChunk(chunk);
-        receivedBytes += chunk.length;
-        
-        // 计算当前进度
-        final progress = ((receivedBytes) / fileSize * 100).toInt();
-        
-        // 只在进度百分比变化时更新（优化频率）
-        if (progress != lastUpdateProgress) {
-          final transferredSizeStr = _formatBytes(receivedBytes);
-          
-          // 计算网速
-          final currentTime = DateTime.now().millisecondsSinceEpoch;
-          final timeDiff = currentTime - lastSpeedUpdateTime;
-          final bytesDiff = receivedBytes - lastSpeedUpdateBytes;
-          
-          String transferSpeed = '计算中...';
-          if (timeDiff > 0) {
-            final speedBytesPerSecond = (bytesDiff / (timeDiff / 1000)).toInt();
-            transferSpeed = _formatSpeed(speedBytesPerSecond);
+      // 使用 StreamSubscription 替代 forEach，以便能真正中断流
+      final completer = Completer<void>();
+      StreamSubscription<List<int>>? subscription;
+      bool isCancelled = false;
+      
+      subscription = request.listen(
+        (chunk) {
+          // 检查是否被取消
+          if (isReceiveCancelled(fileName)) {
+            print('⚠️ 接收被用户取消: $fileName');
+            isCancelled = true;
+            subscription?.cancel();  // 真正停止流处理
+            completer.completeError(Exception('接收被用户取消'));
+            return;
           }
           
-          // 更新进度日志
-          if (receivedBytes == chunk.length) {
-            // 第一个数据块时，添加进度日志
-            final logId = '${DateTime.now().millisecondsSinceEpoch}_receive_$fileName';
-            _progressLogIds[fileName] = logId;
-            logManager?.addProgressLog(
-              logId: logId,
-              type: TransferLogType.receive,
-              fileName: fileName,
-              progress: progress,
-              transferSpeed: transferSpeed,
-            );
-          } else {
-            // 之后的数据块，更新进度日志
-            logManager?.updateProgressLog(
-              fileName: fileName,
-              progress: progress,
-              transferSpeed: transferSpeed,
-            );
+          try {
+            session.writeChunk(chunk);
+            receivedBytes += chunk.length;
+            
+            // 计算当前进度
+            final progress = ((receivedBytes) / fileSize * 100).toInt();
+            
+            // 只在进度百分比变化时更新（优化频率）
+            if (progress != lastUpdateProgress) {
+              final transferredSizeStr = _formatBytes(receivedBytes);
+              
+              // 计算网速
+              final currentTime = DateTime.now().millisecondsSinceEpoch;
+              final timeDiff = currentTime - lastSpeedUpdateTime;
+              final bytesDiff = receivedBytes - lastSpeedUpdateBytes;
+              
+              String transferSpeed = '计算中...';
+              if (timeDiff > 0) {
+                final speedBytesPerSecond = (bytesDiff / (timeDiff / 1000)).toInt();
+                transferSpeed = _formatSpeed(speedBytesPerSecond);
+              }
+              
+              // 更新进度日志
+              if (receivedBytes == chunk.length) {
+                // 第一个数据块时，添加进度日志
+                final logId = '${DateTime.now().millisecondsSinceEpoch}_receive_$fileName';
+                _progressLogIds[fileName] = logId;
+                logManager?.addProgressLog(
+                  logId: logId,
+                  type: TransferLogType.receive,
+                  fileName: fileName,
+                  progress: progress,
+                  transferSpeed: transferSpeed,
+                );
+              } else {
+                // 之后的数据块，更新进度日志
+                logManager?.updateProgressLog(
+                  fileName: fileName,
+                  progress: progress,
+                  transferSpeed: transferSpeed,
+                );
+              }
+              
+              // 关键修复：同时更新 TaskManager 的进度
+              taskManager?.updateProgress(
+                fileName: fileName,
+                progress: progress,
+                transferredSize: transferredSizeStr,
+                eta: transferSpeed,
+              );
+              
+              lastUpdateProgress = progress;
+              lastSpeedUpdateTime = currentTime;
+              lastSpeedUpdateBytes = receivedBytes;
+            }
+          } catch (e) {
+            print('❌ 处理数据块失败: $e');
+            subscription?.cancel();
+            completer.completeError(e);
           }
-          
-          // 关键修复：同时更新 TaskManager 的进度
-          taskManager?.updateProgress(
+        },
+        onError: (error) {
+          print('⚠️ 接收流错误: $error');
+          if (!completer.isCompleted) {
+            completer.completeError(error);
+          }
+        },
+        onDone: () {
+          print('✅ 接收流完成');
+          if (!completer.isCompleted) {
+            completer.complete();
+          }
+        },
+        cancelOnError: true,
+      );
+      
+      try {
+        await completer.future;
+      } catch (e) {
+        // 连接异常关闭或被取消
+        print('⚠️ 接收流异常: $e');
+        session.close();
+        _activeSessions.remove(fileName);
+        
+        // 标记任务为已取消或失败
+        if (isCancelled || e.toString().contains('接收被用户取消')) {
+          taskManager?.markFailed(fileName, '用户取消了接收');
+          logManager?.addInfoLog(
+            message: '⚠️ 用户取消了文件接收: $fileName',
             fileName: fileName,
-            progress: progress,
-            transferredSize: transferredSizeStr,
-            eta: transferSpeed,
+            device: sourceDevice,
           );
-          
-          lastUpdateProgress = progress;
-          lastSpeedUpdateTime = currentTime;
-          lastSpeedUpdateBytes = receivedBytes;
+        } else {
+          taskManager?.markFailed(fileName, '接收失败: $e');
+          logManager?.addInfoLog(
+            message: '⚠️ 文件接收失败: $fileName - $e',
+            fileName: fileName,
+            device: sourceDevice,
+          );
         }
-      });
+        
+        request.response.statusCode = 400;
+        request.response.write('Transfer cancelled or failed');
+        await request.response.close();
+        return;
+      }
 
       // 关闭文件
       session.close();
@@ -399,6 +468,35 @@ class HttpTransferServer {
     return 0;
   }
 
+  /// 取消接收任务
+  void cancelReceive(String fileName) {
+    print('⚠️ 取消接收任务: $fileName');
+    
+    // 获取或创建取消令牌
+    final token = _receiveCancelTokens.putIfAbsent(
+      fileName,
+      () => _ReceiveCancelToken(),
+    );
+    
+    // 触发取消
+    token.cancel();
+    
+    // 关闭会话
+    final session = _activeSessions[fileName];
+    if (session != null) {
+      session.close();
+      _activeSessions.remove(fileName);
+    }
+    
+    // 清理取消令牌
+    _receiveCancelTokens.remove(fileName);
+  }
+
+  /// 检查接收是否被取消
+  bool isReceiveCancelled(String fileName) {
+    return _receiveCancelTokens[fileName]?.isCancelled ?? false;
+  }
+
   /// 释放资源
   void dispose() {
     stop();
@@ -419,6 +517,17 @@ class HttpTransferServer {
       return '${(bytesPerSecond / 1024).toStringAsFixed(1)} KB/s';
     }
     return '${(bytesPerSecond / (1024 * 1024)).toStringAsFixed(1)} MB/s';
+  }
+}
+
+/// 接收端取消令牌
+class _ReceiveCancelToken {
+  bool _isCancelled = false;
+  
+  bool get isCancelled => _isCancelled;
+  
+  void cancel() {
+    _isCancelled = true;
   }
 }
 

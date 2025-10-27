@@ -37,6 +37,7 @@ class HttpTransferClient {
     required String fileName,
     int maxRetries = 3,
     bool resumeUpload = true,
+    CancelToken? cancelToken,
   }) async {
     try {
       final file = File(filePath);
@@ -69,6 +70,7 @@ class HttpTransferClient {
         fileSize: fileSize,
         startByte: startByte,
         maxRetries: maxRetries,
+        cancelToken: cancelToken,
       );
 
       // 上传完成后，删除 cache 中的临时文件
@@ -92,10 +94,17 @@ class HttpTransferClient {
     required int fileSize,
     required int startByte,
     required int maxRetries,
+    CancelToken? cancelToken,
   }) async {
     int retryCount = 0;
 
     while (retryCount < maxRetries) {
+      // 在每次重试开始前检查取消状态
+      if (cancelToken?.isCancelled == true) {
+        _log('⚠️ 传输已被取消，停止重试');
+        return false;
+      }
+      
       try {
         final file = File(filePath);
         
@@ -105,6 +114,9 @@ class HttpTransferClient {
         final request = await HttpClient().postUrl(
           Uri.http('$serverIp:$serverPort', HttpTransferProtocol.UPLOAD_ENDPOINT),
         );
+
+        // 将请求保存到取消令牌中，以便在取消时中止
+        cancelToken?.setCurrentRequest(request);
 
         // 设置请求头
         final encodedFileName = Uri.encodeComponent(fileName);
@@ -171,29 +183,98 @@ class HttpTransferClient {
           }
         });
         
-        await stream.listen(
+        // 监听取消事件
+        final cancelSubscription = cancelToken?.onCancel.listen((_) {
+          _log('⚠️ 检测到取消信号，中止传输: $fileName');
+          statusQueryTimer?.cancel();
+          try {
+            request.abort();
+          } catch (e) {
+            _log('中止请求失败: $e');
+          }
+        });
+        
+        // 使用 Completer 来控制流处理
+        final streamCompleter = Completer<void>();
+        bool isCancelled = false;
+        StreamSubscription<List<int>>? subscription;
+        
+        subscription = stream.listen(
           (chunk) {
-            request.add(chunk);
-            uploadedBytes += chunk.length;
+            // 检查取消令牌，但不抛出异常
+            if (cancelToken?.isCancelled == true) {
+              isCancelled = true;
+              _log('⚠️ 检测到取消，停止流处理');
+              subscription?.cancel(); // 停止接收数据
+              streamCompleter.completeError(Exception('传输已取消'));
+              return;
+            }
             
-            // 不再通过 onProgress 回调显示文件读取进度
-            // 只通过后台查询任务显示网络传输进度
+            try {
+              request.add(chunk);
+              uploadedBytes += chunk.length;
+            } catch (e) {
+              _log('❌ 添加数据到请求失败: $e');
+              subscription?.cancel();
+              streamCompleter.completeError(e);
+            }
           },
-          onDone: () async {
-            // 流完成，关闭请求
+          onDone: () {
+            _log('✅ 文件流读取完成');
+            if (!streamCompleter.isCompleted) {
+              streamCompleter.complete();
+            }
           },
           onError: (error) {
             _log('❌ 流读取错误: $error');
-            statusQueryTimer?.cancel();
-            throw error;
+            if (!streamCompleter.isCompleted) {
+              streamCompleter.completeError(error);
+            }
           },
           cancelOnError: true,
-        ).asFuture();
+        );
+        
+        try {
+          await streamCompleter.future;
+        } catch (e) {
+          _log('❌ 流处理异常: $e');
+          statusQueryTimer?.cancel();
+          cancelSubscription?.cancel();
+          
+          // 如果是取消异常，直接返回 false，不重试
+          if (e.toString().contains('传输已取消') || isCancelled) {
+            _log('⚠️ 传输已被用户取消');
+            taskManager?.markFailed(fileName, '用户取消了传输');
+            return false;
+          }
+          
+          // 其他异常继续重试
+          retryCount++;
+          if (retryCount < maxRetries) {
+            _log('⏳ 第 $retryCount 次重试，${retryCount} 秒后重新尝试...');
+            await Future.delayed(Duration(seconds: retryCount));
+            continue;
+          }
+          
+          // 重试次数已用尽，标记为失败
+          _log('❌ 传输失败，已达到最大重试次数');
+          taskManager?.markFailed(fileName, '传输失败: $e');
+          return false;
+        }
+        
+        // 检查是否被取消
+        if (isCancelled) {
+          _log('⚠️ 传输已被用户取消');
+          statusQueryTimer?.cancel();
+          cancelSubscription?.cancel();
+          return false;
+        }
 
         final response = await request.close();
         
-        // 停止查询任务
+        // 停止查询任务和取消监听
         statusQueryTimer?.cancel();
+        cancelSubscription?.cancel();
 
         if (response.statusCode == 200) {
           // 上传完成，更新为 100%

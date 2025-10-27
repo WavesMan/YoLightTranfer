@@ -1,12 +1,15 @@
 app:
-  version: 0.1.1
-  buildNumber: beta-002
+  version: 0.1.2
+  buildNumber: beta-003
+  # 生产配置
   checkUpdateUrl: 'https://cloud.waveyo.cn/mirror/YoLightTransfer/version.json'
+  # 开发配置
+#  checkUpdateUrl: 'http://192.168.1.220:5500/1/version.json'
   startupUpdateCheck: true
   updateCheckTimeout: 8
 
 about: |
-  YoLightTransfer BETA v0.1.1
+  YoLightTransfer BETA v0.1.2
   
   一个轻量级的局域网跨平台文件传输工具
   
@@ -17,4 +20,5 @@ about: |
   • 实时传输日志记录
   
   开发者：WaveYo.co
-  临时官网：https://cloud.waveyo.cn/mirror/YoLightTransfer/index.html
+  临时官网：https://ylt.waveyo.cn
+  反馈交流欢迎加入 [QQ群](https://qm.qq.com/q/cOqjzHt5TO)

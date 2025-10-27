@@ -1,8 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:yolighttransfer/util/version_check_parser.dart';
 import 'package:yolighttransfer/widgets/update_dialog.dart';
 import 'version_service.dart';
-import 'package:flutter/services.dart';
 
 /// 启动更新检查服务
 class StartupUpdateService {
@@ -105,6 +106,7 @@ class StartupUpdateService {
   /// 检查是否启用启动更新检查
   Future<bool> _isStartupUpdateCheckEnabled() async {
     try {
+      // 使用 rootBundle 加载配置文件，兼容所有平台
       final configContent = await rootBundle.loadString('lib/config.yaml');
       final lines = configContent.split('\n');
       
@@ -126,6 +128,7 @@ class StartupUpdateService {
   /// 获取更新检查超时时间（秒）
   Future<int> _getUpdateCheckTimeout() async {
     try {
+      // 使用 rootBundle 加载配置文件，兼容所有平台
       final configContent = await rootBundle.loadString('lib/config.yaml');
       final lines = configContent.split('\n');
       

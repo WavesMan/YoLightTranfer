@@ -19,11 +19,15 @@ class RichTextWithLinks extends StatelessWidget {
   /// 行高
   final double? height;
 
+  /// 是否显示链接下划线
+  final bool showLinkUnderline;
+
   const RichTextWithLinks({
     required this.text,
     this.style,
     this.linkStyle,
     this.height,
+    this.showLinkUnderline = false,
     super.key,
   });
 
@@ -34,15 +38,15 @@ class RichTextWithLinks extends StatelessWidget {
     // 默认文本样式
     final defaultStyle = style ?? theme.textTheme.bodyMedium;
     
-    // 默认链接样式（蓝色、下划线）
+    // 默认链接样式（蓝色，根据参数控制下划线）
     final defaultLinkStyle = linkStyle ??
         (defaultStyle?.copyWith(
           color: theme.colorScheme.primary,
-          decoration: TextDecoration.underline,
+          decoration: showLinkUnderline ? TextDecoration.underline : TextDecoration.none,
         ) ??
         TextStyle(
           color: theme.colorScheme.primary,
-          decoration: TextDecoration.underline,
+          decoration: showLinkUnderline ? TextDecoration.underline : TextDecoration.none,
         ));
 
     // 解析文本中的链接

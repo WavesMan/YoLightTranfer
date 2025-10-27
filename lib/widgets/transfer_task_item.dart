@@ -114,6 +114,12 @@ class TransferTaskItem extends StatelessWidget {
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             ),
+          if (task.status == TransferStatus.cancelled)
+            Icon(
+              Icons.cancel,
+              size: 18,
+              color: AppStatusColors.error,
+            ),
         ],
       ),
     );
@@ -129,6 +135,8 @@ class TransferTaskItem extends StatelessWidget {
         return ('失败', AppStatusColors.error);
       case TransferStatus.waiting:
         return ('等待中', theme.colorScheme.onSurfaceVariant);
+      case TransferStatus.cancelled:
+        return ('已取消', AppStatusColors.error);
       default:
         return ('未知', theme.colorScheme.onSurfaceVariant);
     }

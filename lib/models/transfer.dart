@@ -6,6 +6,7 @@ enum TransferStatus {
   completed,
   failed,
   waiting,
+  cancelled,
 }
 
 extension TransferStatusExtension on TransferStatus {
@@ -19,6 +20,8 @@ extension TransferStatusExtension on TransferStatus {
         return '已失败';
       case TransferStatus.waiting:
         return '等待中';
+      case TransferStatus.cancelled:
+        return '已取消';
     }
   }
 }

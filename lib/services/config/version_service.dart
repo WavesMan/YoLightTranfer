@@ -1,5 +1,6 @@
-import 'package:flutter/services.dart';
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:yolighttransfer/util/version_check_parser.dart';
 
@@ -21,6 +22,7 @@ class VersionService {
     if (_initialized) return;
     
     try {
+      // 使用 rootBundle 加载配置文件，兼容所有平台
       final configContent = await rootBundle.loadString('lib/config.yaml');
       
       // 简单的 YAML 解析（只解析我们需要的字段）
@@ -99,16 +101,28 @@ class VersionService {
   /// 从配置文件获取检查更新 URL
   Future<String?> _getCheckUpdateUrl() async {
     try {
+      // 使用 rootBundle 加载配置文件，兼容所有平台
       final configContent = await rootBundle.loadString('lib/config.yaml');
+      print('🔍 配置文件内容长度: ${configContent.length}');
+
       final lines = configContent.split('\n');
-      
+
       for (final line in lines) {
-        if (line.contains('checkUpdateUrl:')) {
-          final url = _extractYamlValue(line);
+        // 跳过注释行（以 # 开头）和空行
+        final trimmedLine = line.trim();
+        if (trimmedLine.isEmpty || trimmedLine.startsWith('#')) {
+          continue;
+        }
+
+        // 只处理有效的 checkUpdateUrl 配置行
+        if (trimmedLine.contains('checkUpdateUrl:')) {
+          final url = _extractYamlValue(trimmedLine);
+          print('🔍 找到有效的 checkUpdateUrl: $url');
           return url.isNotEmpty ? url : null;
         }
       }
-      
+
+      print('⚠️ 未找到有效的 checkUpdateUrl 配置');
       return null;
     } catch (e) {
       print('⚠️ 获取检查更新 URL 失败: $e');
@@ -137,6 +151,7 @@ class VersionService {
   /// 获取关于软件的文本内容
   Future<String> getAboutText() async {
     try {
+      // 使用 rootBundle 加载配置文件，兼容所有平台
       final configContent = await rootBundle.loadString('lib/config.yaml');
       final lines = configContent.split('\n');
       

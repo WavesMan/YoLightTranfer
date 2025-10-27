@@ -3,7 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:yolighttransfer/util/version_check_parser.dart';
 import 'package:yolighttransfer/theme/app_spacing.dart';
 import 'package:yolighttransfer/theme/app_border_radius.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:yolighttransfer/widgets/rich_text_with_links.dart';
 
 /// 应用更新对话框
 class UpdateDialog extends StatelessWidget {
@@ -130,53 +130,10 @@ class UpdateDialog extends StatelessWidget {
                   color: theme.colorScheme.surfaceContainer,
                   borderRadius: BorderRadius.circular(AppBorderRadius.s),
                 ),
-                child: MarkdownBody(
-                  data: versionResponse.updateDescription!,
-                  styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-                    p: theme.textTheme.bodySmall,
-                    strong: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                    em: theme.textTheme.bodySmall?.copyWith(
-                      fontStyle: FontStyle.italic,
-                    ),
-                    blockquote: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontStyle: FontStyle.italic,
-                    ),
-                    blockquoteDecoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(AppBorderRadius.xs),
-                    ),
-                    listBullet: theme.textTheme.bodySmall,
-                    h1: theme.textTheme.titleLarge,
-                    h2: theme.textTheme.titleMedium,
-                    h3: theme.textTheme.titleSmall,
-                    h4: theme.textTheme.bodyLarge,
-                    h5: theme.textTheme.bodyMedium,
-                    h6: theme.textTheme.bodySmall,
-                    a: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.primary,
-                      // 移除下划线
-                      decoration: TextDecoration.none,
-                    ),
-                    code: theme.textTheme.bodySmall?.copyWith(
-                      backgroundColor: theme.colorScheme.surfaceVariant.withOpacity(0.3),
-                      fontFamily: 'monospace',
-                    ),
-                    codeblockDecoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(AppBorderRadius.xs),
-                    ),
-                  ),
-                  onTapLink: (text, href, title) {
-                    if (href != null) {
-                      launchUrl(
-                        Uri.parse(href),
-                        mode: LaunchMode.externalApplication,
-                      );
-                    }
-                  },
+                child: RichTextWithLinks(
+                  text: versionResponse.updateDescription!,
+                  style: theme.textTheme.bodySmall,
+                  showLinkUnderline: false,
                 ),
               ),
               const SizedBox(height: AppSpacing.m),
@@ -294,40 +251,25 @@ class UpdateDialog extends StatelessWidget {
         // 章节列表
         ...changelog.sections.map((section) => _buildChangelogSection(section, theme)),
         
-        // 页脚
-        if (changelog.footer != null) ...[
-          const SizedBox(height: AppSpacing.m),
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.s),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(AppBorderRadius.s),
-            ),
-            child: MarkdownBody(
-              data: changelog.footer!,
-              styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-                p: theme.textTheme.bodySmall?.copyWith(
+          // 页脚
+          if (changelog.footer != null) ...[
+            const SizedBox(height: AppSpacing.m),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.s),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(AppBorderRadius.s),
+              ),
+              child: RichTextWithLinks(
+                text: changelog.footer!,
+                style: theme.textTheme.bodySmall?.copyWith(
                   fontStyle: FontStyle.italic,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
-                a: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.primary,
-                  fontStyle: FontStyle.italic,
-                  // 移除下划线
-                  decoration: TextDecoration.none,
-                ),
+                showLinkUnderline: false,
               ),
-              onTapLink: (text, href, title) {
-                if (href != null) {
-                  launchUrl(
-                    Uri.parse(href),
-                    mode: LaunchMode.externalApplication,
-                  );
-                }
-              },
             ),
-          ),
-        ],
+          ],
       ],
     );
   }
@@ -370,30 +312,10 @@ class UpdateDialog extends StatelessWidget {
                   ),
                 ),
                 Expanded(
-                  child: MarkdownBody(
-                    data: item,
-                    styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-                      p: theme.textTheme.bodySmall,
-                      strong: theme.textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                      em: theme.textTheme.bodySmall?.copyWith(
-                        fontStyle: FontStyle.italic,
-                      ),
-                      a: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.primary,
-                        // 移除下划线
-                        decoration: TextDecoration.none,
-                      ),
-                    ),
-                    onTapLink: (text, href, title) {
-                      if (href != null) {
-                        launchUrl(
-                          Uri.parse(href),
-                          mode: LaunchMode.externalApplication,
-                        );
-                      }
-                    },
+                  child: RichTextWithLinks(
+                    text: item,
+                    style: theme.textTheme.bodySmall,
+                    showLinkUnderline: false,
                   ),
                 ),
               ],
