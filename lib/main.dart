@@ -26,8 +26,10 @@ import 'package:yolighttransfer/services/notification/notification_service.dart'
 import 'package:yolighttransfer/ai/network_quality_analyzer.dart';
 import 'package:yolighttransfer/ai/ai_network_advisor.dart';
 import 'package:yolighttransfer/services/ai_network_quality_manager.dart';
+import 'package:yolighttransfer/services/network_testing/lan_network_tester.dart';
 import 'package:yolighttransfer/pages/hotspot_share_screen.dart';
 import 'package:yolighttransfer/pages/hotspot_connect_screen.dart';
+import 'package:yolighttransfer/services/hotspot/hotspot_state_provider.dart';
 import 'dart:io';
 
 void main() async {
@@ -63,10 +65,13 @@ void main() async {
             networkAnalyzer: context.read<NetworkQualityAnalyzer>(),
             configService: context.read<AppConfigService>(),
           )),
+          Provider(create: (context) => LanNetworkTester(context.read<DeviceManager>())),
           ChangeNotifierProvider(create: (context) => AINetworkQualityManager(
             networkAdvisor: context.read<AINetworkAdvisor>(),
             networkAnalyzer: context.read<NetworkQualityAnalyzer>(),
+            lanTester: context.read<LanNetworkTester>(),
           )),
+          ChangeNotifierProvider(create: (_) => HotspotStateProvider()),
         ],
         child: const YoLightTransferApp(),
       ),
@@ -138,17 +143,31 @@ class _MainScreenState extends State<MainScreen> {
   // 传输日志管理器
   TransferLogManager? _logManager;
 
+  // 配置服务实例
+  AppConfigService? _configService;
+  
+  // 配置加载状态
+  bool _isConfigInitialized = false;
+
   @override
   void initState() {
     super.initState();
     // 延后到首帧后启动，确保 Provider 可用
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // 初始化配置服务 - 优先执行
+      final configService = context.read<AppConfigService>();
+      await configService.initialize();
+      
+      // 标记配置已初始化
+      setState(() {
+        _isConfigInitialized = true;
+      });
+      
       // 初始化通知服务
       await NotificationService().initialize();
       
-      // 初始化配置服务
-      final configService = context.read<AppConfigService>();
-      await configService.initialize();
+      // 设置配置变化监听器
+      _setupConfigListener();
       
       // 应用启动时检查更新
       await _checkForUpdatesOnStartup();
@@ -231,6 +250,13 @@ class _MainScreenState extends State<MainScreen> {
     super.dispose();
   }
 
+  /// 设置配置变化监听器 - 简化实现
+  void _setupConfigListener() {
+    // 由于AppConfigService不支持监听器，我们使用其他方式实现配置更新
+    // 在配置页面保存时会自动触发UI重建
+    print('配置监听器已设置（简化实现）');
+  }
+
   /// 应用启动时检查更新
   Future<void> _checkForUpdatesOnStartup() async {
     try {
@@ -280,14 +306,25 @@ class _MainScreenState extends State<MainScreen> {
 
   // 根据配置动态生成屏幕列表
   List<Widget> _getScreens(BuildContext context) {
+    // 如果配置未初始化，使用默认配置（不显示传输日志页面）
+    if (!_isConfigInitialized) {
+      return [
+        const DeviceDiscoveryScreen(),
+        const ConfigScreen(),
+        const ProfileScreen(),
+        const HotspotShareScreen(),
+        const HotspotConnectScreen(),
+      ];
+    }
+    
     try {
       final configService = context.read<AppConfigService>();
-      final enableTransferLogPage = configService.get<bool>(AppConfigService.enableTransferLogPage, true);
+      final enableTransferLogPage = configService.get<bool>(AppConfigService.enableTransferLogPage, false);
       
       final screens = <Widget>[
         const DeviceDiscoveryScreen(),
         if (enableTransferLogPage) const TransferLogScreen(),
-        const ConfigScreen(), // 替换原来的设置页面为配置页面
+        const ConfigScreen(),
         const ProfileScreen(),
         const HotspotShareScreen(),
         const HotspotConnectScreen(),
@@ -295,22 +332,34 @@ class _MainScreenState extends State<MainScreen> {
       
       return screens;
     } catch (e) {
-      // 如果配置服务未初始化，使用默认配置
+      // 配置服务访问失败时，使用默认配置（不显示传输日志页面）
       print('配置服务访问失败，使用默认配置: $e');
       return [
         const DeviceDiscoveryScreen(),
-        const TransferLogScreen(), // 默认启用传输日志页面
         const ConfigScreen(),
         const ProfileScreen(),
+        const HotspotShareScreen(),
+        const HotspotConnectScreen(),
       ];
     }
   }
 
   // 根据配置动态生成标题列表
   List<String> _getAppBarTitles(BuildContext context) {
+    // 如果配置未初始化，使用默认配置（不显示传输日志页面）
+    if (!_isConfigInitialized) {
+      return [
+        '设备发现',
+        '配置',
+        '我的 [BETA]',
+        '热点分享',
+        '连接热点',
+      ];
+    }
+    
     try {
       final configService = context.read<AppConfigService>();
-      final enableTransferLogPage = configService.get<bool>(AppConfigService.enableTransferLogPage, true);
+      final enableTransferLogPage = configService.get<bool>(AppConfigService.enableTransferLogPage, false);
       
       final titles = <String>[
         '设备发现',
@@ -323,11 +372,10 @@ class _MainScreenState extends State<MainScreen> {
       
       return titles;
     } catch (e) {
-      // 如果配置服务未初始化，使用默认配置
+      // 配置服务访问失败时，使用默认配置（不显示传输日志页面）
       print('配置服务访问失败，使用默认标题: $e');
       return [
         '设备发现',
-        // '传输日志', // 默认不启用传输日志页面
         '配置',
         '我的 [BETA]',
         '热点分享',
@@ -338,9 +386,20 @@ class _MainScreenState extends State<MainScreen> {
 
   // 根据配置动态生成导航项
   List<_NavItemData> _getNavItems(BuildContext context) {
+    // 如果配置未初始化，使用默认配置（不显示传输日志页面）
+    if (!_isConfigInitialized) {
+      return [
+        _NavItemData(icon: Icons.devices, label: '设备发现'),
+        _NavItemData(icon: Icons.settings, label: '配置'),
+        _NavItemData(icon: Icons.person, label: '我的 [BETA]'),
+        _NavItemData(icon: Icons.wifi_tethering, label: '热点分享'),
+        _NavItemData(icon: Icons.wifi, label: '连接热点'),
+      ];
+    }
+    
     try {
       final configService = context.read<AppConfigService>();
-      final enableTransferLogPage = configService.get<bool>(AppConfigService.enableTransferLogPage, true);
+      final enableTransferLogPage = configService.get<bool>(AppConfigService.enableTransferLogPage, false);
       
       final items = <_NavItemData>[
         _NavItemData(icon: Icons.devices, label: '设备发现'),
@@ -353,22 +412,49 @@ class _MainScreenState extends State<MainScreen> {
       
       return items;
     } catch (e) {
-      // 如果配置服务未初始化，使用默认配置
+      // 配置服务访问失败时，使用默认配置（不显示传输日志页面）
       print('配置服务访问失败，使用默认导航项: $e');
       return [
         _NavItemData(icon: Icons.devices, label: '设备发现'),
-        // _NavItemData(icon: Icons.history, label: '传输日志'), // 默认不启用传输日志页面
         _NavItemData(icon: Icons.settings, label: '配置'),
         _NavItemData(icon: Icons.person, label: '我的 [BETA]'),
+        _NavItemData(icon: Icons.wifi_tethering, label: '热点分享'),
+        _NavItemData(icon: Icons.wifi, label: '连接热点'),
       ];
     }
   }
 
   // 根据配置动态生成底部导航项
   List<BottomNavigationBarItem> _getBottomNavItems(BuildContext context) {
+    // 如果配置未初始化，使用默认配置（不显示传输日志页面）
+    if (!_isConfigInitialized) {
+      return [
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.devices),
+          label: '设备发现',
+        ),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.settings),
+          label: '配置',
+        ),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.person),
+          label: '我的 [BETA]',
+        ),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.wifi_tethering),
+          label: '热点分享',
+        ),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.wifi),
+          label: '连接热点',
+        ),
+      ];
+    }
+    
     try {
       final configService = context.read<AppConfigService>();
-      final enableTransferLogPage = configService.get<bool>(AppConfigService.enableTransferLogPage, true);
+      final enableTransferLogPage = configService.get<bool>(AppConfigService.enableTransferLogPage, false);
       
       final items = <BottomNavigationBarItem>[
         const BottomNavigationBarItem(
@@ -400,17 +486,13 @@ class _MainScreenState extends State<MainScreen> {
       
       return items;
     } catch (e) {
-      // 如果配置服务未初始化，使用默认配置
+      // 配置服务访问失败时，使用默认配置（不显示传输日志页面）
       print('配置服务访问失败，使用默认底部导航项: $e');
       return [
         const BottomNavigationBarItem(
           icon: Icon(Icons.devices),
           label: '设备发现',
         ),
-        // const BottomNavigationBarItem(
-        //   icon: Icon(Icons.history),
-        //   label: '传输日志', // 默认不启用传输日志页面
-        // ),
         const BottomNavigationBarItem(
           icon: Icon(Icons.settings),
           label: '配置',
@@ -418,6 +500,14 @@ class _MainScreenState extends State<MainScreen> {
         const BottomNavigationBarItem(
           icon: Icon(Icons.person),
           label: '我的 [BETA]',
+        ),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.wifi_tethering),
+          label: '热点分享',
+        ),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.wifi),
+          label: '连接热点',
         ),
       ];
     }

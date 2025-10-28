@@ -1,28 +1,29 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- 文件访问权限 -->
+    <!-- 文件访问权限（注意：WRITE_EXTERNAL_STORAGE 在 Android 10+ 已被限制） -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <!-- Android 13+ 媒体权限 -->
+
+    <!-- Android 13+ 独立媒体读取权限 -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-    <!-- 网络权限 -->
+
+    <!-- 网络与 Wi‑Fi 权限 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- WiFi权限 -->
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
-    <!-- Android 13+ WiFi连接所需权限 -->
+
+    <!-- 位置权限：Android 10+ 扫描和连接指定 Wi‑Fi 需要位置权限 -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- Android 13+ 附近 Wi‑Fi 设备权限（免位置权限连接指定网络，仍建议同时申请位置权限以兼容性更好） -->
     <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
-    <!-- Android 13+ 权限 -->
-    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
-    <!-- Android 12+ 权限 -->
-    <uses-permission android:name="android.permission.MANAGE_WIFI_NETWORK" />
-    <!-- 热点管理权限 -->
-    <!-- 注意：移除了 WRITE_SETTINGS 和 MODIFY_PHONE_STATE 等不必要的系统权限 -->
-    
+
+    <!-- 移除受限/系统级权限，如 MANAGE_WIFI_NETWORK（普通应用不可用） -->
+
     <application
         android:label="YoLightTransfer"
         android:name="${applicationName}"
@@ -36,10 +37,6 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            <!-- Specifies an Android theme to apply to this Activity as soon as
-                 the Android process has started. This theme is visible to the user
-                 while the Flutter UI initializes. After that, this theme continues
-                 to determine the Window background behind the Flutter UI. -->
             <meta-data
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
@@ -49,17 +46,11 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <!-- Don't delete the meta-data below.
-             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
-    <!-- Required to query activities that can process text, see:
-         https://developer.android.com/training/package-visibility and
-         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
 
-         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>

@@ -69,10 +69,6 @@ class MainActivity : FlutterActivity() {
                     hotspotManager.connectToWifi(ssid, password, encryptionType, result)
                 }
                 
-                "disconnectWifi" -> {
-                    val success = hotspotManager.disconnectWifi()
-                    result.success(success)
-                }
                 
                 "isHotspotSupported" -> {
                     val supported = hotspotManager.isHotspotSupported()
@@ -92,6 +88,11 @@ class MainActivity : FlutterActivity() {
                 "getActualHotspotInfo" -> {
                     val actualInfo = hotspotManager.getActualHotspotInfo()
                     result.success(actualInfo)
+                }
+                
+                "disableWifi" -> {
+                    val success = hotspotManager.disableWifi()
+                    result.success(success)
                 }
                 
                 else -> {

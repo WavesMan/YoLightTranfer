@@ -36,6 +36,28 @@ class DiscoveredDevice {
     final transportMethod = json['Transport_Method'] as String? ?? 'HTTP';
     final httpPort = (json['HTTP_Port'] as num?)?.toInt() ?? 30071;
     
+    // 兼容性处理：旧版本可能没有 Network_Interfaces 字段
+    String? networkInterface;
+    String? networkType;
+    
+    // 尝试从 Network_Interfaces 对象中获取网络接口信息
+    final networkInterfaces = json['Network_Interfaces'] as Map<String, dynamic>?;
+    if (networkInterfaces != null && networkInterfaces.isNotEmpty) {
+      // 获取第一个网络接口的信息
+      final firstInterfaceKey = networkInterfaces.keys.first;
+      final firstInterface = networkInterfaces[firstInterfaceKey] as Map<String, dynamic>?;
+      if (firstInterface != null) {
+        networkInterface = firstInterfaceKey;
+        networkType = firstInterface['type'] as String?;
+      }
+    }
+    
+    // 如果从 Network_Interfaces 没有获取到信息，尝试从旧字段获取
+    if (networkInterface == null) {
+      networkInterface = json['Network_Interface'] as String?;
+      networkType = json['Network_Type'] as String?;
+    }
+    
     return DiscoveredDevice(
       id: json['Device_ID'] as String,
       name: json['Device_Name'] as String? ?? 'Unknown',
@@ -44,8 +66,8 @@ class DiscoveredDevice {
       httpPort: httpPort,
       transportMethod: transportMethod,
       lastSeenMs: now, // 总是使用当前时间，确保时间戳正确
-      networkInterface: json['Network_Interface'] as String?,
-      networkType: json['Network_Type'] as String?,
+      networkInterface: networkInterface,
+      networkType: networkType,
     );
   }
 
