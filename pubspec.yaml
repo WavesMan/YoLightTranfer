@@ -26,6 +26,9 @@ dependencies:
   yaml: ^3.1.2
   flutter_markdown: ^0.6.18
   flutter_local_notifications: ^17.0.0
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^3.5.0
+  charset: ^2.0.1
 
 dev_dependencies:
   flutter_test:
@@ -57,12 +60,3 @@ flutter:
     - family: MiSans
       fonts:
         - asset: assets/front/MiSans-Regular.ttf
-
-
-
-
-
-
-
-
-

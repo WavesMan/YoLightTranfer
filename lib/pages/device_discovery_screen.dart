@@ -6,9 +6,11 @@ import 'package:yolighttransfer/widgets/device_card.dart';
 import 'package:yolighttransfer/widgets/file_selection_area.dart';
 import 'package:yolighttransfer/widgets/transfer_task_item.dart';
 import 'package:yolighttransfer/widgets/section_card.dart';
+import 'package:yolighttransfer/widgets/network_quality_recommendation_dialog.dart';
 import 'package:yolighttransfer/services/device/device_manager.dart';
 import 'package:yolighttransfer/services/transfer/transfer_task_manager.dart';
 import 'package:yolighttransfer/services/transfer/transfer_log_manager.dart';
+import 'package:yolighttransfer/services/ai_network_quality_manager.dart';
 import 'package:yolighttransfer/models/device.dart' as ui;
 
 class DeviceDiscoveryScreen extends StatefulWidget {
@@ -19,9 +21,52 @@ class DeviceDiscoveryScreen extends StatefulWidget {
 }
 
 class _DeviceDiscoveryScreenState extends State<DeviceDiscoveryScreen> {
+  bool _hasShownRecommendation = false;
+
   @override
   void initState() {
     super.initState();
+    // 延迟启动网络质量检测，确保Provider已初始化
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startNetworkQualityDetection();
+    });
+  }
+
+  /// 启动网络质量检测
+  Future<void> _startNetworkQualityDetection() async {
+    try {
+      final qualityManager = context.read<AINetworkQualityManager>();
+      await qualityManager.startDetection();
+      
+      // 监听网络质量状态变化
+      qualityManager.addListener(() {
+        if (qualityManager.shouldShowRecommendation && !_hasShownRecommendation) {
+          _showRecommendationDialog(qualityManager);
+        }
+      });
+    } catch (e) {
+      print('网络质量检测启动失败: $e');
+    }
+  }
+
+  /// 显示推荐弹窗
+  void _showRecommendationDialog(AINetworkQualityManager qualityManager) {
+    if (!mounted) return;
+    
+    _hasShownRecommendation = true;
+    
+    NetworkQualityRecommendationDialog.show(
+      context: context,
+      qualityManager: qualityManager,
+      onAccept: () {
+        // 用户接受推荐，跳转到热点分享页面
+        // 这里需要实现页面跳转逻辑
+        print('用户接受了热点推荐');
+      },
+      onReject: () {
+        print('用户拒绝了热点推荐');
+      },
+    );
   }
 
   @override

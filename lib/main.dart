@@ -23,30 +23,60 @@ import 'package:yolighttransfer/services/config/version_service.dart';
 import 'package:yolighttransfer/services/config/startup_update_service.dart';
 import 'package:yolighttransfer/services/transfer/global_dialog_manager.dart';
 import 'package:yolighttransfer/services/notification/notification_service.dart';
+import 'package:yolighttransfer/ai/network_quality_analyzer.dart';
+import 'package:yolighttransfer/ai/ai_network_advisor.dart';
+import 'package:yolighttransfer/services/ai_network_quality_manager.dart';
+import 'package:yolighttransfer/pages/hotspot_share_screen.dart';
+import 'package:yolighttransfer/pages/hotspot_connect_screen.dart';
+import 'dart:io';
 
 void main() async {
-  // 预加载字体
-  WidgetsFlutterBinding.ensureInitialized();
-  await FontManager.preloadFonts();
+  print('=== 应用启动调试 ===');
+  print('平台: ${Platform.operatingSystem}');
+  print('版本: ${Platform.version}');
   
-  // 初始化版本服务
-  await VersionService().initialize();
-  
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => DeviceManager()),
-        ChangeNotifierProvider(create: (_) => TransferTaskManager()),
-        ChangeNotifierProvider(create: (_) => TransferLogManager()),
-        Provider(create: (context) => HttpTransferManager(
-          logManager: context.read<TransferLogManager>(),
-          taskManager: context.read<TransferTaskManager>(),
-        )),
-        Provider(create: (_) => AppConfigService()),
-      ],
-      child: const YoLightTransferApp(),
-    ),
-  );
+  try {
+    // 预加载字体
+    WidgetsFlutterBinding.ensureInitialized();
+    print('✅ Flutter绑定初始化完成');
+    
+    await FontManager.preloadFonts();
+    print('✅ 字体预加载完成');
+    
+    // 初始化版本服务
+    await VersionService().initialize();
+    print('✅ 版本服务初始化完成');
+    
+    runApp(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => DeviceManager()),
+          ChangeNotifierProvider(create: (_) => TransferTaskManager()),
+          ChangeNotifierProvider(create: (_) => TransferLogManager()),
+          Provider(create: (context) => HttpTransferManager(
+            logManager: context.read<TransferLogManager>(),
+            taskManager: context.read<TransferTaskManager>(),
+          )),
+          Provider(create: (_) => AppConfigService()),
+          Provider(create: (context) => NetworkQualityAnalyzer('127.0.0.1', 30071)),
+          ChangeNotifierProvider(create: (context) => AINetworkAdvisor(
+            networkAnalyzer: context.read<NetworkQualityAnalyzer>(),
+            configService: context.read<AppConfigService>(),
+          )),
+          ChangeNotifierProvider(create: (context) => AINetworkQualityManager(
+            networkAdvisor: context.read<AINetworkAdvisor>(),
+            networkAnalyzer: context.read<NetworkQualityAnalyzer>(),
+          )),
+        ],
+        child: const YoLightTransferApp(),
+      ),
+    );
+    print('✅ 应用启动完成');
+  } catch (e, stack) {
+    print('❌ 应用启动失败: $e');
+    print('堆栈: $stack');
+    rethrow;
+  }
 }
 
 class YoLightTransferApp extends StatelessWidget {
@@ -259,6 +289,8 @@ class _MainScreenState extends State<MainScreen> {
         if (enableTransferLogPage) const TransferLogScreen(),
         const ConfigScreen(), // 替换原来的设置页面为配置页面
         const ProfileScreen(),
+        const HotspotShareScreen(),
+        const HotspotConnectScreen(),
       ];
       
       return screens;
@@ -285,6 +317,8 @@ class _MainScreenState extends State<MainScreen> {
         if (enableTransferLogPage) '传输日志',
         '配置',
         '我的 [BETA]',
+        '热点分享',
+        '连接热点',
       ];
       
       return titles;
@@ -296,6 +330,8 @@ class _MainScreenState extends State<MainScreen> {
         // '传输日志', // 默认不启用传输日志页面
         '配置',
         '我的 [BETA]',
+        '热点分享',
+        '连接热点',
       ];
     }
   }
@@ -311,6 +347,8 @@ class _MainScreenState extends State<MainScreen> {
         if (enableTransferLogPage) _NavItemData(icon: Icons.history, label: '传输日志'),
         _NavItemData(icon: Icons.settings, label: '配置'),
         _NavItemData(icon: Icons.person, label: '我的 [BETA]'),
+        _NavItemData(icon: Icons.wifi_tethering, label: '热点分享'),
+        _NavItemData(icon: Icons.wifi, label: '连接热点'),
       ];
       
       return items;
@@ -349,6 +387,14 @@ class _MainScreenState extends State<MainScreen> {
         const BottomNavigationBarItem(
           icon: Icon(Icons.person),
           label: '我的 [BETA]',
+        ),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.wifi_tethering),
+          label: '热点分享',
+        ),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.wifi),
+          label: '连接热点',
         ),
       ];
       

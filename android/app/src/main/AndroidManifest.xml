@@ -12,6 +12,16 @@
     <!-- WiFi权限 -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <!-- Android 13+ WiFi连接所需权限 -->
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
+    <!-- Android 13+ 权限 -->
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
+    <!-- Android 12+ 权限 -->
+    <uses-permission android:name="android.permission.MANAGE_WIFI_NETWORK" />
+    <!-- 热点管理权限 -->
+    <!-- 注意：移除了 WRITE_SETTINGS 和 MODIFY_PHONE_STATE 等不必要的系统权限 -->
     
     <application
         android:label="YoLightTransfer"
