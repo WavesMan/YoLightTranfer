@@ -29,12 +29,14 @@ dependencies:
   qr_flutter: ^4.1.0
   mobile_scanner: ^3.5.0
   charset: ^2.0.1
+  tflite_flutter: ^0.12.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^2.0.0
   msix: ^3.10.0
+  mocktail: ^1.0.0
 
 msix_config:
   display_name: YoLightTransfer
@@ -55,6 +57,7 @@ flutter:
   assets:
     - assets/front/MiSans-Regular.ttf
     - lib/config.yaml
+    - assets/models/
 
   fonts:
     - family: MiSans

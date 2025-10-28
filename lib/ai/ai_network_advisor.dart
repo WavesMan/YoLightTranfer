@@ -5,6 +5,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:yolighttransfer/services/config/app_config_service.dart';
 import 'package:yolighttransfer/ai/network_quality_analyzer.dart';
+import 'package:yolighttransfer/ai/tflite_network_evaluator.dart';
 
 /// AI决策场景类型
 enum AIScene {
@@ -37,6 +38,7 @@ class AIRecommendation {
 class AINetworkAdvisor extends ChangeNotifier {
   final NetworkQualityAnalyzer _networkAnalyzer;
   final AppConfigService _configService;
+  final TFLiteNetworkEvaluator _tfliteEvaluator;
   
   AIScene _currentScene = AIScene.general;
   final List<bool> _weakNetworkHistory = []; // 弱网历史记录（防抖）
@@ -49,10 +51,24 @@ class AINetworkAdvisor extends ChangeNotifier {
   AINetworkAdvisor({
     required NetworkQualityAnalyzer networkAnalyzer,
     required AppConfigService configService,
+    TFLiteNetworkEvaluator? tfliteEvaluator,
     AIScene initialScene = AIScene.general,
   })  : _networkAnalyzer = networkAnalyzer,
         _configService = configService,
-        _currentScene = initialScene;
+        _tfliteEvaluator = tfliteEvaluator ?? TFLiteNetworkEvaluator(),
+        _currentScene = initialScene {
+    // 异步加载 TFLite 模型
+    _initializeTFLiteModel();
+  }
+
+  /// 异步初始化 TFLite 模型
+  void _initializeTFLiteModel() async {
+    try {
+      await _tfliteEvaluator.loadModel();
+    } catch (e) {
+      print('⚠️ TFLite 模型初始化失败: $e');
+    }
+  }
 
   /// 更新场景类型
   void updateScene(AIScene scene) {
@@ -122,17 +138,48 @@ class AINetworkAdvisor extends ChangeNotifier {
       );
     }
 
-    // 2. 根据场景动态调整弱网阈值
+    // 2. 尝试使用 TFLite 模型进行推理
+    final tfliteResult = await _tryTFLiteInference(networkQuality);
+    
+    // 3. 如果 TFLite 推理成功且置信度高，使用 TFLite 结果
+    if (tfliteResult != null && tfliteResult.confidence >= _tfliteEvaluator.confidenceThreshold) {
+      print('🧠 使用 TFLite 推理结果 (置信度: ${tfliteResult.confidence.toStringAsFixed(2)})');
+      
+      // 更新弱网历史记录（基于 TFLite 结果）
+      _updateWeakNetworkHistory(tfliteResult.shouldRecommendHotspot);
+      
+      // 综合决策（基于历史记录）
+      final shouldRecommend = _shouldRecommendBasedOnHistory();
+      
+      // 生成推荐原因
+      final reason = _generateRecommendationReasonWithTFLite(
+        shouldRecommend,
+        networkQuality,
+        tfliteResult,
+      );
+      
+      return AIRecommendation(
+        shouldRecommendHotspot: shouldRecommend,
+        reason: reason,
+        networkQuality: networkQuality,
+        timestamp: DateTime.now(),
+      );
+    }
+    
+    // 4. 如果 TFLite 不可用或置信度低，回退到规则引擎
+    print('🔬 回退到规则引擎决策');
+    
+    // 根据场景动态调整弱网阈值
     final bandwidthThreshold = _getBandwidthThresholdByScene();
     final isWeakNetwork = _isWeakNetwork(networkQuality, bandwidthThreshold);
 
-    // 3. 更新弱网历史记录（防抖机制）
+    // 更新弱网历史记录（防抖机制）
     _updateWeakNetworkHistory(isWeakNetwork);
 
-    // 4. 综合决策
+    // 综合决策
     final shouldRecommend = _shouldRecommendBasedOnHistory();
 
-    // 5. 生成推荐原因
+    // 生成推荐原因
     final reason = _generateRecommendationReason(
       shouldRecommend,
       networkQuality,
@@ -274,6 +321,75 @@ class AINetworkAdvisor extends ChangeNotifier {
     final remaining = _rejectionCooldown - timeSinceRejection;
     
     return remaining.inSeconds > 0 ? remaining.inSeconds : 0;
+  }
+
+  /// 尝试 TFLite 推理
+  Future<TFLiteInferenceResult?> _tryTFLiteInference(NetworkQuality networkQuality) async {
+    try {
+      // 如果模型未加载，尝试加载
+      if (!_tfliteEvaluator.isModelLoaded) {
+        final loaded = await _tfliteEvaluator.loadModel();
+        if (!loaded) {
+          print('⚠️ TFLite 模型加载失败，使用模拟推理');
+          return _tfliteEvaluator.simulateInference(networkQuality);
+        }
+      }
+      
+      // 进行推理
+      final result = await _tfliteEvaluator.infer(networkQuality);
+      return result;
+      
+    } catch (e) {
+      print('❌ TFLite 推理异常: $e');
+      // 异常时使用模拟推理
+      return _tfliteEvaluator.simulateInference(networkQuality);
+    }
+  }
+
+  /// 生成包含 TFLite 信息的推荐原因
+  String _generateRecommendationReasonWithTFLite(
+    bool shouldRecommend,
+    NetworkQuality quality,
+    TFLiteInferenceResult tfliteResult,
+  ) {
+    if (!shouldRecommend) {
+      if (_isInRejectionCooldown()) {
+        return '用户近期已拒绝推荐';
+      }
+      
+      if (_weakNetworkHistory.length < _debounceCount) {
+        return '网络质量检测中...';
+      }
+      
+      final weakCount = _weakNetworkHistory.where((isWeak) => isWeak).length;
+      if (weakCount < _debounceCount) {
+        return '网络质量不稳定，需连续检测';
+      }
+      
+      return '网络质量正常 (AI 评分: ${(tfliteResult.qualityScore * 100).toStringAsFixed(1)}%)';
+    }
+
+    // 推荐原因（包含 AI 信息）
+    final reasons = <String>[];
+    
+    if (quality.bandwidthMbps < 1.0) {
+      reasons.add('带宽过低(${quality.bandwidthMbps.toStringAsFixed(2)}Mbps)');
+    }
+    
+    if (quality.packetLossRate > 5.0) {
+      reasons.add('丢包率过高(${quality.packetLossRate.toStringAsFixed(2)}%)');
+    }
+    
+    if (quality.avgDelayMs > 100.0) {
+      reasons.add('延迟过高(${quality.avgDelayMs.toStringAsFixed(0)}ms)');
+    }
+
+    return '弱网环境：${reasons.join("，")} (AI 置信度: ${(tfliteResult.confidence * 100).toStringAsFixed(1)}%)';
+  }
+
+  /// 获取 TFLite 模型信息
+  Map<String, dynamic> getTFLiteModelInfo() {
+    return _tfliteEvaluator.getModelInfo();
   }
 
   /// 清空历史记录
