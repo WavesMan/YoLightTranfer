@@ -1,0 +1,15 @@
+{
+  "network_thresholds": {
+    "general": 1.0,
+    "manufacturing": 0.8,
+    "education": 1.2
+  },
+  "description": "网络质量阈值配置（单位：Mbps）",
+  "version": "1.0.0",
+  "last_updated": "2025-10-29",
+  "notes": {
+    "general": "通用场景：带宽低于1.0Mbps视为弱网",
+    "manufacturing": "制造车间场景：带宽低于0.8Mbps视为弱网（更早触发推荐）",
+    "education": "教育场景：带宽低于1.2Mbps视为弱网（要求更高）"
+  }
+}
