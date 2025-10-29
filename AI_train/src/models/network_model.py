@@ -29,7 +29,7 @@ class NetworkQualityModel(nn.Module):
     
     def __init__(self, 
                  input_size: int = 3,
-                 hidden_sizes: Tuple[int, ...] = (64, 32, 16),
+                 hidden_sizes: Tuple[int, ...] = (128, 64, 32, 16),
                  dropout_rate: float = 0.2,
                  use_batch_norm: bool = True):
         """
@@ -101,16 +101,16 @@ class NetworkQualityModel(nn.Module):
                 x = self.batch_norms[i](x)
             x = self.dropout(x)
         
-        # Output layer with appropriate activations
+        # Output layer - return logits for BCEWithLogitsLoss
         outputs = self.output_layer(x)
         
-        # Apply different activations to different outputs
-        hotspot_prob = torch.sigmoid(outputs[:, 0:1])  # Binary classification
+        # Apply sigmoid only for regression outputs, not for classification
+        # For BCEWithLogitsLoss, we return logits for the first output
         quality_score = torch.sigmoid(outputs[:, 1:2])  # Regression 0-1
         confidence = torch.sigmoid(outputs[:, 2:3])     # Confidence 0-1
         
-        # Combine outputs
-        result = torch.cat([hotspot_prob, quality_score, confidence], dim=1)
+        # Combine outputs - hotspot output is logits for BCEWithLogitsLoss
+        result = torch.cat([outputs[:, 0:1], quality_score, confidence], dim=1)
         
         return result
     
@@ -142,7 +142,8 @@ class NetworkQualityModel(nn.Module):
         with torch.no_grad():
             outputs = self.forward(x)
             
-            hotspot_probs = outputs[:, 0].cpu().numpy()
+            # Apply sigmoid to get probabilities from logits
+            hotspot_probs = torch.sigmoid(outputs[:, 0]).cpu().numpy()
             quality_scores = outputs[:, 1].cpu().numpy()
             confidences = outputs[:, 2].cpu().numpy()
             

@@ -115,7 +115,7 @@ class ModelTrainer:
         class CombinedLoss(nn.Module):
             def __init__(self):
                 super(CombinedLoss, self).__init__()
-                self.bce_loss = nn.BCELoss()  # For hotspot probability
+                self.bce_loss = nn.BCEWithLogitsLoss()  # For hotspot probability (logits)
                 self.mse_loss = nn.MSELoss()  # For quality score and confidence
             
             def forward(self, outputs, targets):
