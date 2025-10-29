@@ -1,0 +1,43 @@
+[project]
+name = "ai-network-quality"
+version = "0.1.0"
+description = "AI model for network quality analysis and hotspot recommendation"
+authors = [
+    {name = "YoLightTransfer Team", email = "team@yolighttransfer.com"}
+]
+requires-python = ">=3.8.1"
+dependencies = [
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "numpy>=1.21.0",
+    "pandas>=1.3.0",
+    "matplotlib>=3.5.0",
+    "seaborn>=0.11.0",
+    "scikit-learn>=1.0.0",
+    "jupyterlab>=3.0.0",
+    "wandb>=0.15.0",
+    "tqdm>=4.64.0",
+    "torchaudio",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=45.0", "wheel"]
+build-backward-compatible = true
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
