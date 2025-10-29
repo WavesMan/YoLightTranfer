@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:yolighttransfer/ai/ai_network_advisor.dart';
 import 'package:yolighttransfer/ai/network_quality_analyzer.dart';
 import 'package:yolighttransfer/services/network_testing/lan_network_tester.dart';
+import 'package:yolighttransfer/services/network_data_collector.dart';
+import 'package:yolighttransfer/services/data_upload_service.dart';
 
 /// 网络质量检测状态
 enum NetworkQualityState {
@@ -60,13 +62,22 @@ class AINetworkQualityManager extends ChangeNotifier {
   DateTime? _lastUserRejection;
   static const Duration _userRejectionCooldown = Duration(minutes: 60);
 
+  // 数据收集相关
+  NetworkDataCollector? _dataCollector;
+  DataUploadService? _uploadService;
+  bool _isDataCollectionEnabled = false;
+
   AINetworkQualityManager({
     required AINetworkAdvisor networkAdvisor,
     required NetworkQualityAnalyzer networkAnalyzer,
     required LanNetworkTester lanTester,
+    NetworkDataCollector? dataCollector,
+    DataUploadService? uploadService,
   })  : _networkAdvisor = networkAdvisor,
         _networkAnalyzer = networkAnalyzer,
-        _lanTester = lanTester;
+        _lanTester = lanTester,
+        _dataCollector = dataCollector,
+        _uploadService = uploadService;
 
   /// 获取当前状态
   NetworkQualityState get currentState => _currentState;
@@ -155,6 +166,13 @@ class AINetworkQualityManager extends ChangeNotifier {
       _lastDetectionTime = DateTime.now();
       _updateState(state, message);
       
+      // 收集数据样本（异步执行，不阻塞检测流程）
+      _collectNetworkDataSample(
+        quality: quality,
+        recommendation: recommendation,
+        userAccepted: false, // 此时用户尚未做出选择
+      );
+      
       return result;
     } on NoDevicesException {
       final result = NetworkQualityResult(
@@ -196,6 +214,15 @@ class AINetworkQualityManager extends ChangeNotifier {
     _shouldShowRecommendation = false;
     _lastUserRejection = null; // 清除用户拒绝记录
     notifyListeners();
+    
+    // 收集用户接受推荐的数据样本
+    if (_lastResult?.recommendation != null) {
+      _collectNetworkDataSample(
+        quality: _lastResult!.recommendation!.networkQuality,
+        recommendation: _lastResult!.recommendation,
+        userAccepted: true,
+      );
+    }
   }
 
   /// 用户拒绝热点推荐
@@ -204,6 +231,15 @@ class AINetworkQualityManager extends ChangeNotifier {
     _lastUserRejection = DateTime.now();
     _networkAdvisor.recordUserRejection();
     notifyListeners();
+    
+    // 收集用户拒绝推荐的数据样本
+    if (_lastResult?.recommendation != null) {
+      _collectNetworkDataSample(
+        quality: _lastResult!.recommendation!.networkQuality,
+        recommendation: _lastResult!.recommendation,
+        userAccepted: false,
+      );
+    }
   }
 
   /// 手动关闭推荐弹窗
@@ -276,5 +312,158 @@ class AINetworkQualityManager extends ChangeNotifier {
     final remaining = _recommendationCooldown - timeSinceLastRecommendation;
     
     return remaining.inSeconds > 0 ? remaining.inSeconds : 0;
+  }
+
+  // ==================== 数据收集相关方法 ====================
+
+  /// 是否启用数据收集
+  bool get isDataCollectionEnabled => _isDataCollectionEnabled;
+
+  /// 设置数据收集启用状态
+  set isDataCollectionEnabled(bool enabled) {
+    if (_isDataCollectionEnabled != enabled) {
+      _isDataCollectionEnabled = enabled;
+      
+      if (_dataCollector != null) {
+        final currentConfig = _dataCollector!.config;
+        final newConfig = DataCollectionConfig(
+          enabled: enabled,
+          apiEndpoint: currentConfig.apiEndpoint,
+          batchSize: currentConfig.batchSize,
+          uploadInterval: currentConfig.uploadInterval,
+          includeLocation: currentConfig.includeLocation,
+          anonymizeData: currentConfig.anonymizeData,
+        );
+        _dataCollector!.updateConfig(newConfig);
+      }
+      
+      notifyListeners();
+    }
+  }
+
+  /// 初始化数据收集会话
+  void startDataCollectionSession() {
+    if (_dataCollector != null && _isDataCollectionEnabled) {
+      _dataCollector!.startSession();
+      print('📊 数据收集会话已启动');
+    }
+  }
+
+  /// 收集网络数据样本（在检测过程中调用）
+  Future<void> _collectNetworkDataSample({
+    required NetworkQuality quality,
+    required AIRecommendation? recommendation,
+    required bool userAccepted,
+  }) async {
+    if (_dataCollector == null || !_isDataCollectionEnabled) {
+      return;
+    }
+
+    try {
+      await _dataCollector!.collectSample(
+        includeAIDecision: recommendation != null,
+        userAccepted: userAccepted,
+      );
+    } catch (e) {
+      print('❌ 数据收集失败: $e');
+    }
+  }
+
+  /// 手动触发数据上传
+  Future<bool> triggerDataUpload() async {
+    if (_uploadService != null && _isDataCollectionEnabled) {
+      return await _uploadService!.triggerUpload();
+    }
+    return false;
+  }
+
+  /// 获取数据收集统计信息
+  Map<String, dynamic> getDataCollectionStats() {
+    if (_dataCollector == null) {
+      return {
+        'enabled': false,
+        'pending_samples': 0,
+        'failed_samples': 0,
+        'total_collected': 0,
+      };
+    }
+
+    return _dataCollector!.getStats();
+  }
+
+  /// 获取数据上传统计信息
+  Map<String, dynamic> getDataUploadStats() {
+    if (_uploadService == null) {
+      return {
+        'enabled': false,
+        'current_status': 'idle',
+        'total_uploads': 0,
+        'successful_uploads': 0,
+        'failed_uploads': 0,
+        'total_samples': 0,
+      };
+    }
+
+    final stats = _uploadService!.getCurrentStats();
+    return {
+      'enabled': _isDataCollectionEnabled,
+      'current_status': _uploadService!.currentStatus.toString(),
+      'total_uploads': stats.totalUploads,
+      'successful_uploads': stats.successfulUploads,
+      'failed_uploads': stats.failedUploads,
+      'total_samples': stats.totalSamples,
+      'last_upload_time': stats.lastUploadTime.toIso8601String(),
+    };
+  }
+
+  /// 更新数据收集配置
+  void updateDataCollectionConfig(DataCollectionConfig config) {
+    if (_dataCollector != null) {
+      _dataCollector!.updateConfig(config);
+      _isDataCollectionEnabled = config.enabled;
+      notifyListeners();
+    }
+  }
+
+  /// 获取当前数据收集配置
+  DataCollectionConfig? getDataCollectionConfig() {
+    return _dataCollector?.config;
+  }
+
+  /// 清空所有收集的数据
+  void clearCollectedData() {
+    _dataCollector?.clearAllData();
+    print('🗑️ 已清空所有收集的数据');
+  }
+
+  /// 结束数据收集会话
+  void endDataCollectionSession() {
+    _dataCollector?.endSession();
+    print('📊 数据收集会话已结束');
+  }
+
+  /// 重试失败的数据上传
+  Future<void> retryFailedDataUploads() async {
+    if (_dataCollector != null && _isDataCollectionEnabled) {
+      await _dataCollector!.retryFailedUploads();
+    }
+  }
+
+  /// 设置数据收集器
+  void setDataCollector(NetworkDataCollector collector) {
+    _dataCollector = collector;
+    _isDataCollectionEnabled = collector.config.enabled;
+    notifyListeners();
+  }
+
+  /// 设置数据上传服务
+  void setUploadService(DataUploadService service) {
+    _uploadService = service;
+    notifyListeners();
+  }
+
+  /// 获取数据上传进度流
+  Stream<UploadProgress>? getDataUploadProgress() {
+    return _uploadService?.uploadProgress;
   }
 }

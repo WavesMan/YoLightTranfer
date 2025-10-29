@@ -86,7 +86,7 @@ class MultiTerminalTrainer:
         except (FileNotFoundError, json.JSONDecodeError):
             return {"total_iterations": 0, "terminals": {}}
 
-def auto_train_iter(n_iters: int = 50, config_path: str = "configs/train_config.json"):
+def auto_train_iter(n_iters: int = 1000, config_path: str = "configs/train_config.json"):
     """多终端多线程自动训练函数"""
     # 初始化多终端训练管理器
     mt_trainer = MultiTerminalTrainer(config_path)

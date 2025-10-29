@@ -8,6 +8,18 @@ app:
   startupUpdateCheck: true
   updateCheckTimeout: 8
 
+# 数据收集配置
+data_collection:
+  # 生产环境API端点
+  api_endpoint: 'https://api.waveyo.cn/network-data'
+  # 开发环境API端点
+#  api_endpoint: 'http://192.168.1.220:5500/network-data'
+  enabled: false  # 默认禁用数据收集
+  batch_size: 50
+  upload_interval_minutes: 30
+  include_location: false
+  anonymize_data: true
+
 about: |
   YoLightTransfer BETA v0.1.2
   
