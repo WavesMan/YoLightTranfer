@@ -37,19 +37,34 @@ dev_dependencies:
   flutter_lints: ^2.0.0
   msix: ^3.10.0
   mocktail: ^1.0.0
+  flutter_launcher_icons: ^0.13.1
 
 msix_config:
   display_name: YoLightTransfer
   publisher_display_name: WaveYo
-  identity_name: com.waveyo.yolighttransfer
+  identity_name: cn.waveyo.yolighttransfer
   msix_version: 0.1.2.0
   certificate_path: 
   certificate_password: 
-  logo_path: 
+  logo_path: assets/images/logo.png
   start_menu_icon_path: 
   tile_icon_path: 
   capabilities: internetClient,privateNetworkClientServer
   file_extension:
+
+flutter_launcher_icons:
+  image_path: assets/images/logo.png    # 统一图标源
+  android: "launcher_icon"
+
+  ios: true
+  web: true
+  windows:
+    generate: true
+    icon_size: 256                      # Windows 推荐 256×256
+  macos:
+    generate: true
+  linux:
+    generate: true
 
 flutter:
   uses-material-design: true
@@ -58,6 +73,7 @@ flutter:
     - assets/front/MiSans-Regular.ttf
     - lib/config.yaml
     - assets/models/
+    - assets/config/
 
   fonts:
     - family: MiSans

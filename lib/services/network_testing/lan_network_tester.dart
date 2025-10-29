@@ -24,6 +24,11 @@ class TestMetrics {
     required this.avgDelayMs,
     required this.lossRate,
   });
+
+  @override
+  String toString() {
+    return 'TestMetrics{bandwidthMbps: $bandwidthMbps, avgDelayMs: $avgDelayMs, lossRate: $lossRate}';
+  }
 }
 
 /// 聚合后的测试指标
@@ -78,6 +83,11 @@ class AggregatedMetrics {
       peerCount: results.length,
       platformCount: platformCount,
     );
+  }
+
+  @override
+  String toString() {
+    return 'AggregatedMetrics{bandwidthMbps: $bandwidthMbps, avgDelayMs: $avgDelayMs, lossRate: $lossRate, peerCount: $peerCount}';
   }
 }
 

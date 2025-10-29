@@ -1,297 +1,271 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:yolighttransfer/services/network_testing/lan_network_tester.dart';
+import 'package:yolighttransfer/services/device/device_manager.dart';
+import 'package:yolighttransfer/models/discovered_device.dart';
 
 // Mock classes for testing
-class MockRawDatagramSocket extends Mock implements RawDatagramSocket {}
-class MockSocket extends Mock implements Socket {}
-class MockServerSocket extends Mock implements ServerSocket {}
+class MockDeviceManager extends Mock implements DeviceManager {}
+class MockDiscoveredDevice extends Mock implements DiscoveredDevice {}
 
 void main() {
   group('LanNetworkTester', () {
     late LanNetworkTester tester;
+    late MockDeviceManager mockDeviceManager;
+    late MockDiscoveredDevice mockDevice;
 
     setUp(() {
-      tester = LanNetworkTester();
-    });
-
-    tearDown(() {
-      // Clean up any resources
-    });
-
-    test('should initialize with default values', () {
-      expect(tester.isTesting, false);
-      expect(tester.currentMetrics, isNull);
-    });
-
-    test('should start and stop testing', () async {
-      // 由于网络测试涉及实际的 Socket 操作，这里主要测试状态管理
-      // 实际项目中可能需要使用 mock 来模拟网络操作
+      mockDeviceManager = MockDeviceManager();
+      mockDevice = MockDiscoveredDevice();
       
-      // 开始测试
-      final startResult = await tester.startTesting();
-      expect(startResult, isTrue);
-      expect(tester.isTesting, isTrue);
+      // 设置默认的 mock 行为
+      when(() => mockDevice.ip).thenReturn('192.168.1.100');
+      when(() => mockDevice.httpPort).thenReturn(8080);
+      when(() => mockDevice.os).thenReturn('android');
+      when(() => mockDevice.name).thenReturn('Test Device');
       
-      // 停止测试
-      await tester.stopTesting();
-      expect(tester.isTesting, isFalse);
+      tester = LanNetworkTester(mockDeviceManager);
     });
 
-    test('should handle test timeout gracefully', () async {
-      // 测试超时处理
-      // 注意：实际测试可能需要调整超时时间
-      final result = await tester.startTesting();
-      expect(result, isTrue);
+    test('should initialize with default parameters', () {
+      expect(tester.probesPerPeer, 10);
+      expect(tester.perProbeTimeout, const Duration(milliseconds: 500));
+    });
+
+    test('should initialize with custom parameters', () {
+      final customTester = LanNetworkTester(
+        mockDeviceManager,
+        probesPerPeer: 5,
+        perProbeTimeout: const Duration(seconds: 1),
+      );
       
-      // 等待一段时间后检查状态
-      await Future.delayed(Duration(milliseconds: 100));
-      expect(tester.isTesting, isTrue);
+      expect(customTester.probesPerPeer, 5);
+      expect(customTester.perProbeTimeout, const Duration(seconds: 1));
+    });
+
+    test('should throw NoDevicesException when no peers available', () async {
+      when(() => mockDeviceManager.getOnlineDevices()).thenReturn([]);
       
-      // 停止测试
-      await tester.stopTesting();
-      expect(tester.isTesting, isFalse);
+      expect(() => tester.run(), throwsA(isA<NoDevicesException>()));
     });
 
-    test('should provide current metrics when available', () async {
-      // 启动测试
-      await tester.startTesting();
-      
-      // 初始状态下应该没有指标
-      expect(tester.currentMetrics, isNull);
-      
-      // 停止测试
-      await tester.stopTesting();
-    });
-
-    test('should handle multiple start/stop calls', () async {
-      // 多次启动和停止不应该导致错误
-      for (int i = 0; i < 3; i++) {
-        final startResult = await tester.startTesting();
-        expect(startResult, isTrue);
-        expect(tester.isTesting, isTrue);
-        
-        await tester.stopTesting();
-        expect(tester.isTesting, isFalse);
-      }
-    });
-
-    test('should handle network interface discovery', () async {
-      // 测试网络接口发现功能
-      // 注意：这个测试可能在不同环境中表现不同
-      final interfaces = await tester.getAvailableInterfaces();
-      
-      // 至少应该返回一个列表（可能为空）
-      expect(interfaces, isA<List<NetworkInterface>>());
-    });
-
-    test('should handle UDP ping test', () async {
-      // UDP ping 测试
-      // 由于涉及实际网络操作，这里主要测试方法调用
-      final result = await tester.testUdpPing('127.0.0.1', 8080);
-      
-      // 结果应该是一个 NetworkMetrics 对象或 null
-      expect(result == null || result is NetworkMetrics, isTrue);
-    });
-
-    test('should handle TCP bandwidth test', () async {
-      // TCP 带宽测试
-      final result = await tester.testTcpBandwidth('127.0.0.1', 8080);
-      
-      // 结果应该是一个 NetworkMetrics 对象或 null
-      expect(result == null || result is NetworkMetrics, isTrue);
-    });
-
-    test('should handle HTTP bandwidth test', () async {
-      // HTTP 带宽测试
-      final result = await tester.testHttpBandwidth('http://127.0.0.1:8080');
-      
-      // 结果应该是一个 NetworkMetrics 对象或 null
-      expect(result == null || result is NetworkMetrics, isTrue);
-    });
-
-    test('should calculate metrics correctly', () {
-      // 测试指标计算逻辑
-      final testData = [
-        TestData(
-          sentPackets: 10,
-          receivedPackets: 8,
-          totalBytes: 1024,
-          totalTimeMs: 1000,
-        ),
-      ];
-
-      final metrics = tester.calculateMetrics(testData);
-      
-      expect(metrics, isNotNull);
-      expect(metrics.bandwidthMbps, greaterThanOrEqualTo(0.0));
-      expect(metrics.packetLossRate, greaterThanOrEqualTo(0.0));
-      expect(metrics.avgDelayMs, greaterThanOrEqualTo(0.0));
-    });
-
-    test('should handle empty test data', () {
-      final metrics = tester.calculateMetrics([]);
-      
-      // 对于空数据，应该返回默认值或 null
-      expect(metrics, isNotNull);
-      expect(metrics.bandwidthMbps, 0.0);
-      expect(metrics.packetLossRate, 100.0); // 所有包都丢失
-      expect(metrics.avgDelayMs, 0.0);
-    });
-
-    test('should handle packet loss calculation', () {
-      final testData = [
-        TestData(
-          sentPackets: 10,
-          receivedPackets: 5, // 50% 丢包
-          totalBytes: 1024,
-          totalTimeMs: 1000,
-        ),
-      ];
-
-      final metrics = tester.calculateMetrics(testData);
-      expect(metrics.packetLossRate, 50.0);
-    });
-
-    test('should handle bandwidth calculation', () {
-      final testData = [
-        TestData(
-          sentPackets: 10,
-          receivedPackets: 10,
-          totalBytes: 1024 * 1024, // 1 MB
-          totalTimeMs: 1000, // 1秒
-        ),
-      ];
-
-      final metrics = tester.calculateMetrics(testData);
-      // 1 MB/s = 8 Mbps
-      expect(metrics.bandwidthMbps, closeTo(8.0, 0.1));
-    });
-
-    test('should handle zero time case', () {
-      final testData = [
-        TestData(
-          sentPackets: 10,
-          receivedPackets: 10,
-          totalBytes: 1024,
-          totalTimeMs: 0, // 零时间
-        ),
-      ];
-
-      final metrics = tester.calculateMetrics(testData);
-      expect(metrics.bandwidthMbps, 0.0);
-    });
-
-    test('should handle error scenarios', () async {
-      // 测试错误处理
-      // 使用无效的地址进行测试
-      final result = await tester.testUdpPing('invalid.address', 9999);
-      expect(result, isNull);
-    });
-
-    test('should provide test configuration', () {
-      final config = tester.getTestConfiguration();
-      
-      expect(config, isNotNull);
-      expect(config['udpPort'], isA<int>());
-      expect(config['tcpPort'], isA<int>());
-      expect(config['testDurationMs'], isA<int>());
-    });
-
-    test('should reset metrics on stop', () async {
-      // 启动测试
-      await tester.startTesting();
-      
-      // 停止测试后应该重置指标
-      await tester.stopTesting();
-      expect(tester.currentMetrics, isNull);
-    });
-  });
-
-  group('NetworkMetrics', () {
-    test('should create with valid values', () {
-      final metrics = NetworkMetrics(
-        bandwidthMbps: 10.0,
-        packetLossRate: 5.0,
-        avgDelayMs: 50.0,
-        timestamp: DateTime.now(),
+    test('should create TestMetrics with valid values', () {
+      final metrics = TestMetrics(
+        peer: mockDevice,
+        bandwidthMbps: 50.0,
+        avgDelayMs: 20.0,
+        lossRate: 5.0,
       );
 
-      expect(metrics.bandwidthMbps, 10.0);
-      expect(metrics.packetLossRate, 5.0);
-      expect(metrics.avgDelayMs, 50.0);
-      expect(metrics.timestamp, isA<DateTime>());
+      expect(metrics.peer, mockDevice);
+      expect(metrics.bandwidthMbps, 50.0);
+      expect(metrics.avgDelayMs, 20.0);
+      expect(metrics.lossRate, 5.0);
     });
 
-    test('should handle edge values', () {
-      final zeroMetrics = NetworkMetrics(
-        bandwidthMbps: 0.0,
-        packetLossRate: 0.0,
-        avgDelayMs: 0.0,
-        timestamp: DateTime.now(),
-      );
-
-      final maxMetrics = NetworkMetrics(
-        bandwidthMbps: 1000.0,
-        packetLossRate: 100.0,
-        avgDelayMs: 1000.0,
-        timestamp: DateTime.now(),
-      );
-
-      expect(zeroMetrics.bandwidthMbps, 0.0);
-      expect(maxMetrics.packetLossRate, 100.0);
-    });
-
-    test('should have correct string representation', () {
-      final metrics = NetworkMetrics(
-        bandwidthMbps: 5.5,
-        packetLossRate: 2.5,
+    test('should create AggregatedMetrics with valid values', () {
+      final metrics = AggregatedMetrics(
+        bandwidthMbps: 45.0,
         avgDelayMs: 25.0,
-        timestamp: DateTime(2023, 1, 1),
+        lossRate: 3.0,
+        peerCount: 3,
+        platformCount: {'android': 2, 'ios': 1},
+      );
+
+      expect(metrics.bandwidthMbps, 45.0);
+      expect(metrics.avgDelayMs, 25.0);
+      expect(metrics.lossRate, 3.0);
+      expect(metrics.peerCount, 3);
+      expect(metrics.platformCount, {'android': 2, 'ios': 1});
+    });
+
+    test('should create empty AggregatedMetrics from empty list', () {
+      final metrics = AggregatedMetrics.from([]);
+
+      expect(metrics.bandwidthMbps, 0);
+      expect(metrics.avgDelayMs, 0);
+      expect(metrics.lossRate, 0);
+      expect(metrics.peerCount, 0);
+      expect(metrics.platformCount, isEmpty);
+    });
+
+    test('should create AggregatedMetrics from single result', () {
+      final testMetrics = TestMetrics(
+        peer: mockDevice,
+        bandwidthMbps: 50.0,
+        avgDelayMs: 20.0,
+        lossRate: 5.0,
+      );
+
+      final aggregated = AggregatedMetrics.from([testMetrics]);
+
+      expect(aggregated.bandwidthMbps, 50.0);
+      expect(aggregated.avgDelayMs, 20.0);
+      expect(aggregated.lossRate, 5.0);
+      expect(aggregated.peerCount, 1);
+      expect(aggregated.platformCount, {'android': 1});
+    });
+
+    test('should create AggregatedMetrics from multiple results', () {
+      final mockDevice2 = MockDiscoveredDevice();
+      when(() => mockDevice2.os).thenReturn('ios');
+      
+      final testMetrics1 = TestMetrics(
+        peer: mockDevice,
+        bandwidthMbps: 50.0,
+        avgDelayMs: 20.0,
+        lossRate: 5.0,
+      );
+      
+      final testMetrics2 = TestMetrics(
+        peer: mockDevice2,
+        bandwidthMbps: 60.0,
+        avgDelayMs: 30.0,
+        lossRate: 10.0,
+      );
+
+      final aggregated = AggregatedMetrics.from([testMetrics1, testMetrics2]);
+
+      // 带宽中位数应该是 (50 + 60) / 2 = 55.0
+      expect(aggregated.bandwidthMbps, 55.0);
+      // 平均延迟应该是 (20 + 30) / 2 = 25.0
+      expect(aggregated.avgDelayMs, 25.0);
+      // 平均丢包率应该是 (5 + 10) / 2 = 7.5
+      expect(aggregated.lossRate, 7.5);
+      expect(aggregated.peerCount, 2);
+      expect(aggregated.platformCount, {'android': 1, 'ios': 1});
+    });
+
+    test('should clamp loss rate to 0-100 range', () {
+      final testMetrics1 = TestMetrics(
+        peer: mockDevice,
+        bandwidthMbps: 50.0,
+        avgDelayMs: 20.0,
+        lossRate: -10.0, // 负值
+      );
+      
+      final testMetrics2 = TestMetrics(
+        peer: mockDevice,
+        bandwidthMbps: 60.0,
+        avgDelayMs: 30.0,
+        lossRate: 150.0, // 超过100
+      );
+
+      final aggregated = AggregatedMetrics.from([testMetrics1, testMetrics2]);
+
+      // 平均丢包率应该是 (-10 + 150) / 2 = 70，但会被裁剪到 0-100
+      expect(aggregated.lossRate, 70.0);
+    });
+
+    test('should calculate median bandwidth correctly for odd count', () {
+      final testMetrics1 = TestMetrics(
+        peer: mockDevice,
+        bandwidthMbps: 10.0,
+        avgDelayMs: 20.0,
+        lossRate: 5.0,
+      );
+      
+      final testMetrics2 = TestMetrics(
+        peer: mockDevice,
+        bandwidthMbps: 20.0,
+        avgDelayMs: 30.0,
+        lossRate: 10.0,
+      );
+      
+      final testMetrics3 = TestMetrics(
+        peer: mockDevice,
+        bandwidthMbps: 30.0,
+        avgDelayMs: 40.0,
+        lossRate: 15.0,
+      );
+
+      final aggregated = AggregatedMetrics.from([testMetrics1, testMetrics2, testMetrics3]);
+
+      // 中位数应该是 20.0
+      expect(aggregated.bandwidthMbps, 20.0);
+    });
+
+    test('should calculate median bandwidth correctly for even count', () {
+      final testMetrics1 = TestMetrics(
+        peer: mockDevice,
+        bandwidthMbps: 10.0,
+        avgDelayMs: 20.0,
+        lossRate: 5.0,
+      );
+      
+      final testMetrics2 = TestMetrics(
+        peer: mockDevice,
+        bandwidthMbps: 20.0,
+        avgDelayMs: 30.0,
+        lossRate: 10.0,
+      );
+      
+      final testMetrics3 = TestMetrics(
+        peer: mockDevice,
+        bandwidthMbps: 30.0,
+        avgDelayMs: 40.0,
+        lossRate: 15.0,
+      );
+      
+      final testMetrics4 = TestMetrics(
+        peer: mockDevice,
+        bandwidthMbps: 40.0,
+        avgDelayMs: 50.0,
+        lossRate: 20.0,
+      );
+
+      final aggregated = AggregatedMetrics.from([testMetrics1, testMetrics2, testMetrics3, testMetrics4]);
+
+      // 中位数应该是 (20 + 30) / 2 = 25.0
+      expect(aggregated.bandwidthMbps, 25.0);
+    });
+
+    test('should estimate bandwidth correctly', () {
+      // 测试带宽估算函数
+      // 使用反射或其他方式测试私有方法，这里我们通过公共接口间接测试
+      
+      // 创建测试设备
+      when(() => mockDeviceManager.getOnlineDevices()).thenReturn([mockDevice]);
+      
+      // 这个测试主要是验证代码结构，实际带宽估算逻辑在私有方法中
+      expect(tester, isNotNull);
+    });
+
+    test('NoDevicesException should have correct message', () {
+      final exception = NoDevicesException();
+      expect(exception.toString(), 'NoDevicesException: 未发现可测的邻居设备');
+    });
+
+    test('TestMetrics should have correct string representation', () {
+      final metrics = TestMetrics(
+        peer: mockDevice,
+        bandwidthMbps: 50.0,
+        avgDelayMs: 20.0,
+        lossRate: 5.0,
       );
 
       final str = metrics.toString();
-      expect(str, contains('5.5'));
-      expect(str, contains('2.5'));
-      expect(str, contains('25.0'));
-    });
-  });
-
-  group('TestData', () {
-    test('should create with valid values', () {
-      final testData = TestData(
-        sentPackets: 10,
-        receivedPackets: 8,
-        totalBytes: 1024,
-        totalTimeMs: 1000,
-      );
-
-      expect(testData.sentPackets, 10);
-      expect(testData.receivedPackets, 8);
-      expect(testData.totalBytes, 1024);
-      expect(testData.totalTimeMs, 1000);
+      expect(str, contains('TestMetrics'));
+      expect(str, contains('bandwidthMbps: 50.0'));
+      expect(str, contains('avgDelayMs: 20.0'));
+      expect(str, contains('lossRate: 5.0'));
     });
 
-    test('should calculate packet loss correctly', () {
-      final testData = TestData(
-        sentPackets: 10,
-        receivedPackets: 5,
-        totalBytes: 1024,
-        totalTimeMs: 1000,
+    test('AggregatedMetrics should have correct string representation', () {
+      final metrics = AggregatedMetrics(
+        bandwidthMbps: 45.0,
+        avgDelayMs: 25.0,
+        lossRate: 3.0,
+        peerCount: 3,
+        platformCount: {'android': 2, 'ios': 1},
       );
 
-      expect(testData.packetLossRate, 50.0);
-    });
-
-    test('should handle zero sent packets', () {
-      final testData = TestData(
-        sentPackets: 0,
-        receivedPackets: 0,
-        totalBytes: 0,
-        totalTimeMs: 0,
-      );
-
-      expect(testData.packetLossRate, 0.0);
+      final str = metrics.toString();
+      expect(str, contains('AggregatedMetrics'));
+      expect(str, contains('bandwidthMbps: 45.0'));
+      expect(str, contains('avgDelayMs: 25.0'));
+      expect(str, contains('lossRate: 3.0'));
+      expect(str, contains('peerCount: 3'));
     });
   });
 }

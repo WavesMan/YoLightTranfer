@@ -2,10 +2,76 @@ import 'package:flutter/material.dart';
 import 'package:yolighttransfer/theme/app_theme.dart';
 import 'package:yolighttransfer/theme/app_spacing.dart';
 import 'package:yolighttransfer/theme/app_border_radius.dart';
+import 'package:yolighttransfer/widgets/network_test_progress_dialog.dart';
+import 'package:yolighttransfer/ai/ai_network_advisor.dart';
+import 'package:yolighttransfer/ai/network_quality_analyzer.dart';
+import 'package:yolighttransfer/services/config/app_config_service.dart';
 
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  late AINetworkAdvisor _aiAdvisor;
+  late NetworkQualityAnalyzer _networkAnalyzer;
+  late AppConfigService _configService;
+  bool _isTestingGateway = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeServices();
+  }
+
+  void _initializeServices() {
+    // 这里需要根据实际的项目结构来初始化服务
+    // 暂时使用占位符，实际项目中需要注入正确的依赖
+    _configService = AppConfigService();
+    _networkAnalyzer = NetworkQualityAnalyzer('192.168.1.1', 80);
+    _aiAdvisor = AINetworkAdvisor(
+      networkAnalyzer: _networkAnalyzer,
+      configService: _configService,
+    );
+  }
+
+  /// 开始网关测速
+  void _startGatewaySpeedTest() {
+    setState(() {
+      _isTestingGateway = true;
+    });
+
+    // 获取默认网关IP（这里使用示例IP，实际项目中需要获取真实网关IP）
+    final gatewayIp = '192.168.1.1';
+
+    // 获取测速进度流
+    final progressStream = _aiAdvisor.measureGatewayBandwidth(gatewayIp);
+
+    // 显示测速进度弹窗
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => NetworkTestProgressDialog(
+        progressStream: progressStream,
+        gatewayIp: gatewayIp,
+        onComplete: () {
+          setState(() {
+            _isTestingGateway = false;
+          });
+          Navigator.of(context).pop();
+        },
+        onCancel: () {
+          setState(() {
+            _isTestingGateway = false;
+          });
+          Navigator.of(context).pop();
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -136,6 +202,40 @@ class SettingsScreen extends StatelessWidget {
                     decoration: const InputDecoration(
                       labelText: '发现间隔',
                     ),
+                  ),
+                  const SizedBox(height: AppSpacing.m),
+                  
+                  // 网关测速按钮
+                  ElevatedButton.icon(
+                    onPressed: _isTestingGateway ? null : _startGatewaySpeedTest,
+                    icon: _isTestingGateway 
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.speed, size: 20),
+                    label: Text(
+                      _isTestingGateway ? '测速中...' : '检测上游网络质量',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: theme.colorScheme.primary,
+                      foregroundColor: theme.colorScheme.onPrimary,
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: AppSpacing.s),
+                  Text(
+                    '检测网关网络质量，采用动态截断算法（2-10秒）',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),

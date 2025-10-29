@@ -10,7 +10,13 @@ class MockNetworkQualityAnalyzer extends Mock implements NetworkQualityAnalyzer 
 class MockAppConfigService extends Mock implements AppConfigService {}
 class MockTFLiteNetworkEvaluator extends Mock implements TFLiteNetworkEvaluator {}
 
+// Fake classes for fallback values
+class NetworkQualityFake extends Fake implements NetworkQuality {}
+
 void main() {
+  setUpAll(() {
+    registerFallbackValue(NetworkQualityFake());
+  });
   group('AINetworkAdvisor', () {
     late AINetworkAdvisor advisor;
     late MockNetworkQualityAnalyzer mockAnalyzer;
@@ -31,6 +37,14 @@ void main() {
         'modelPath': 'assets/models/network_quality_model.tflite',
         'modelVersion': '1.0.0',
       });
+      // 设置模拟推理的默认行为
+      when(() => mockTFLiteEvaluator.simulateInference(any()))
+          .thenReturn(TFLiteInferenceResult(
+            confidence: 0.7,
+            qualityScore: 0.3,
+            shouldRecommendHotspot: true,
+            modelVersion: 'simulated_1.0.0',
+          ));
 
       advisor = AINetworkAdvisor(
         networkAnalyzer: mockAnalyzer,
@@ -97,6 +111,9 @@ void main() {
             modelVersion: 'simulated_1.0.0',
           ));
 
+      // 需要连续调用3次才能触发推荐（防抖机制）
+      await advisor.shouldRecommendHotspotWith(networkQuality);
+      await advisor.shouldRecommendHotspotWith(networkQuality);
       final recommendation = await advisor.shouldRecommendHotspotWith(networkQuality);
 
       expect(recommendation.shouldRecommendHotspot, isTrue);
@@ -139,6 +156,9 @@ void main() {
                 modelVersion: '1.0.0',
               ));
 
+      // 需要连续调用3次才能触发推荐（防抖机制）
+      await advisor.shouldRecommendHotspotWith(networkQuality);
+      await advisor.shouldRecommendHotspotWith(networkQuality);
       final recommendation = await advisor.shouldRecommendHotspotWith(networkQuality);
 
       expect(recommendation.shouldRecommendHotspot, isTrue);
@@ -162,7 +182,12 @@ void main() {
                 shouldRecommendHotspot: true,
                 modelVersion: '1.0.0',
               ));
+      // 设置配置服务返回有效值
+      when(() => mockConfigService.get<double>(any())).thenReturn(1.0);
 
+      // 需要连续调用3次才能触发推荐（防抖机制）
+      await advisor.shouldRecommendHotspotWith(networkQuality);
+      await advisor.shouldRecommendHotspotWith(networkQuality);
       final recommendation = await advisor.shouldRecommendHotspotWith(networkQuality);
 
       expect(recommendation.reason, contains('弱网环境'));
@@ -207,6 +232,15 @@ void main() {
         timestamp: DateTime.now(),
       );
 
+      // 设置模拟推理返回 false 表示强网
+      when(() => mockTFLiteEvaluator.simulateInference(goodQuality))
+          .thenReturn(TFLiteInferenceResult(
+            confidence: 0.7,
+            qualityScore: 0.8,
+            shouldRecommendHotspot: false,
+            modelVersion: 'simulated_1.0.0',
+          ));
+
       // 两次弱网，一次强网 - 应该不推荐
       await advisor.shouldRecommendHotspotWith(poorQuality);
       await advisor.shouldRecommendHotspotWith(poorQuality);
@@ -218,7 +252,7 @@ void main() {
 
     test('should get bandwidth threshold by scene', () {
       // 测试默认阈值
-      when(() => mockConfigService.get<double>(any())).thenReturn(null);
+      when(() => mockConfigService.get<double>(any())).thenReturn(1.0);
 
       // 通用场景
       advisor.updateScene(AIScene.general);
@@ -279,6 +313,9 @@ void main() {
             modelVersion: 'simulated_1.0.0',
           ));
 
+      // 需要连续调用3次才能触发推荐（防抖机制）
+      await advisor.shouldRecommendHotspotWith(networkQuality);
+      await advisor.shouldRecommendHotspotWith(networkQuality);
       final recommendation = await advisor.shouldRecommendHotspotWith(networkQuality);
 
       // 应该使用模拟推理

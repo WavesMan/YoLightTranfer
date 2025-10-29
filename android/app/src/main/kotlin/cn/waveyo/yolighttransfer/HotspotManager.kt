@@ -1,4 +1,4 @@
-package com.waveyo.yolighttransfer_flutter
+package cn.waveyo.yolighttransfer
 
 import android.annotation.SuppressLint
 import android.content.Context

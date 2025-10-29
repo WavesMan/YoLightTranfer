@@ -1,4 +1,4 @@
-package com.waveyo.yolighttransfer_flutter
+package cn.waveyo.yolighttransfer
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine

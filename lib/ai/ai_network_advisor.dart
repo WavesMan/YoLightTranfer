@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:yolighttransfer/services/config/app_config_service.dart';
 import 'package:yolighttransfer/ai/network_quality_analyzer.dart';
 import 'package:yolighttransfer/ai/tflite_network_evaluator.dart';
+import 'package:yolighttransfer/services/network_testing/gateway_bandwidth_tester.dart';
 
 /// AI决策场景类型
 enum AIScene {
@@ -397,5 +398,53 @@ class AINetworkAdvisor extends ChangeNotifier {
     _weakNetworkHistory.clear();
     _lastUserRejection = null;
     notifyListeners();
+  }
+
+  /// 检测网关网络质量（新增网关测速功能）
+  Future<NetworkQuality> detectGatewayQuality(String gatewayIp) async {
+    try {
+      // 获取场景化阈值
+      final threshold = _getBandwidthThresholdByScene();
+      
+      // 创建网关测速器
+      final tester = GatewayBandwidthTester(
+        gatewayIp,
+        weakThresholdMbps: threshold,
+        port: 80,
+      );
+
+      // 执行测速并获取最终带宽
+      final bandwidth = await tester.measureBandwidth();
+
+      // 复用现有的LAN网络质量数据（延迟和丢包率）
+      final lanQuality = await _networkAnalyzer.measureNetworkQuality();
+
+      return NetworkQuality(
+        bandwidthMbps: bandwidth,
+        packetLossRate: lanQuality.packetLossRate,
+        avgDelayMs: lanQuality.avgDelayMs,
+        timestamp: DateTime.now(),
+      );
+    } catch (e) {
+      print('网关测速失败: $e');
+      // 测速失败时返回默认弱网质量
+      return NetworkQuality(
+        bandwidthMbps: 0.0,
+        packetLossRate: 100.0,
+        avgDelayMs: 1000.0,
+        timestamp: DateTime.now(),
+      );
+    }
+  }
+
+  /// 获取网关测速进度流（用于UI进度显示）
+  Stream<BandwidthProgress> measureGatewayBandwidth(String gatewayIp) {
+    final threshold = _getBandwidthThresholdByScene();
+    final tester = GatewayBandwidthTester(
+      gatewayIp,
+      weakThresholdMbps: threshold,
+      port: 80,
+    );
+    return tester.measure();
   }
 }

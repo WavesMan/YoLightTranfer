@@ -1,4 +1,4 @@
-package com.waveyo.yolighttransfer_flutter.hotspot
+package cn.waveyo.yolighttransfer.hotspot
 
 import android.content.BroadcastReceiver
 import android.content.Context

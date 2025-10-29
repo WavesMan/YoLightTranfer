@@ -5,8 +5,17 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+import java.util.Properties
+import java.io.FileInputStream
+
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("app/key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
 android {
-    namespace = "com.waveyo.yolighttransfer_flutter"
+    namespace = "cn.waveyo.yolighttransfer"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -14,7 +23,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
         
-        // ĺŻç¨ć ¸ĺżĺşĺĺşĺĺ?
+        // 启用核心库反序列化
         isCoreLibraryDesugaringEnabled = true
     }
 
@@ -25,20 +34,47 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.waveyo.yolighttransfer_flutter"
+        applicationId = "cn.waveyo.yolighttransfer"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 29  // Android 10 - 仅支持Android 10及以上
         targetSdk = flutter.targetSdkVersion
         versionCode = 1
         versionName = "0.1.2"
+        
+//        ndk {
+//            abiFilters.clear()
+//            abiFilters.add("arm64-v8a")
+//        }
+    }
+
+//    splits {
+//        abi {
+//            isEnable = true      // 开启 abi 拆分
+//            reset()              // 清空默认列表
+//            include("arm64-v8a") // 仅包含 arm64-v8a
+//            isUniversalApk = false
+//        }
+//    }
+
+    signingConfigs {
+        create("release") {
+            // 从key.properties读取配置
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+            storeFile = file("nfdx_waveyo_key.jks")
+            storePassword = keystoreProperties.getProperty("storePassword")
+        }
     }
 
     buildTypes {
-        release {
+        getByName("release") {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+            isShrinkResources = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 }
@@ -52,29 +88,30 @@ flutter {
     source = "../.."
 }
 
-// 配置APK输出到Flutter期望的路径
-android.applicationVariants.all {
-    val variant = this
-    val variantName = variant.name.capitalize()
-    
-    // 在构建完成后复制APK文件到Flutter build目录
-    val copyApkTask = tasks.register<Copy>("copy${variantName}ApkToFlutterBuild") {
-        from(variant.outputs.map { it.outputFile })
-        into("${project.rootDir}/../build/app/outputs/flutter-apk/")
-        rename { fileName ->
-            if (fileName.contains("app-")) {
-                "app-${variant.baseName}.apk"
-            } else {
-                fileName
-            }
-        }
-        
-        // 确保在APK生成后执行
-        dependsOn(variant.assembleProvider)
-    }
-    
-    // 将复制任务添加到构建流程中
-    variant.assembleProvider.configure {
-        finalizedBy(copyApkTask)
-    }
-}
+//// 配置APK输出到Flutter期望的路径
+//android.applicationVariants.all {
+//    val variant = this
+//    val variantName = variant.name.capitalize()
+//
+//    // 在构建完成后复制APK文件到Flutter build目录
+//    val copyApkTask = tasks.register<Copy>("copy${variantName}ApkToFlutterBuild") {
+//        from(variant.outputs.map { it.outputFile })
+//        into("${project.rootDir}/../build/app/outputs/flutter-apk/")
+//        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+//        rename { fileName ->
+//            if (fileName.contains("app-")) {
+//                "app-${variant.baseName}.apk"
+//            } else {
+//                fileName
+//            }
+//        }
+//
+//        // 确保在APK生成后执行
+//        dependsOn(variant.assembleProvider)
+//    }
+//
+//    // 将复制任务添加到构建流程中
+//    variant.assembleProvider.configure {
+//        finalizedBy(copyApkTask)
+//    }
+//}
