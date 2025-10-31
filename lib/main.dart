@@ -26,7 +26,6 @@ import 'package:yolighttransfer/services/notification/notification_service.dart'
 import 'package:yolighttransfer/ai/network_quality_analyzer.dart';
 import 'package:yolighttransfer/ai/ai_network_advisor.dart';
 import 'package:yolighttransfer/services/ai_network_quality_manager.dart';
-import 'package:yolighttransfer/services/network_testing/lan_network_tester.dart';
 import 'package:yolighttransfer/pages/hotspot_share_screen.dart';
 import 'package:yolighttransfer/pages/hotspot_connect_screen.dart';
 import 'package:yolighttransfer/services/hotspot/hotspot_state_provider.dart';
@@ -65,11 +64,10 @@ void main() async {
             networkAnalyzer: context.read<NetworkQualityAnalyzer>(),
             configService: context.read<AppConfigService>(),
           )),
-          Provider(create: (context) => LanNetworkTester(context.read<DeviceManager>())),
           ChangeNotifierProvider(create: (context) => AINetworkQualityManager(
             networkAdvisor: context.read<AINetworkAdvisor>(),
             networkAnalyzer: context.read<NetworkQualityAnalyzer>(),
-            lanTester: context.read<LanNetworkTester>(),
+            deviceManager: context.read<DeviceManager>(),
           )),
           ChangeNotifierProvider(create: (_) => HotspotStateProvider()),
         ],

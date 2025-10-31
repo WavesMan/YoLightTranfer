@@ -7,6 +7,7 @@ plugins {
 
 import java.util.Properties
 import java.io.FileInputStream
+import org.gradle.api.tasks.Copy
 
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("app/key.properties")
@@ -22,8 +23,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-        
-        // 启用核心库反序列化
+
+        // 启用核心库反序列�?
         isCoreLibraryDesugaringEnabled = true
     }
 
@@ -37,7 +38,7 @@ android {
         applicationId = "cn.waveyo.yolighttransfer"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 29  // Android 10 - 仅支持Android 10及以上
+        minSdk = 29  // Android 10 - 仅支持Android 10及以�?
         targetSdk = flutter.targetSdkVersion
         versionCode = 1
         versionName = "0.1.2"
@@ -50,9 +51,9 @@ android {
 
 //    splits {
 //        abi {
-//            isEnable = true      // 开启 abi 拆分
+//            isEnable = true      // 开�?abi 拆分
 //            reset()              // 清空默认列表
-//            include("arm64-v8a") // 仅包含 arm64-v8a
+//            include("arm64-v8a") // 仅包�?arm64-v8a
 //            isUniversalApk = false
 //        }
 //    }
@@ -80,7 +81,7 @@ android {
 }
 
 dependencies {
-    // ć ¸ĺżĺşĺĺşĺĺäžčľ?
+    // 核心库反序列化依�?
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }
 
@@ -88,30 +89,36 @@ flutter {
     source = "../.."
 }
 
-//// 配置APK输出到Flutter期望的路径
-//android.applicationVariants.all {
-//    val variant = this
-//    val variantName = variant.name.capitalize()
-//
-//    // 在构建完成后复制APK文件到Flutter build目录
-//    val copyApkTask = tasks.register<Copy>("copy${variantName}ApkToFlutterBuild") {
-//        from(variant.outputs.map { it.outputFile })
-//        into("${project.rootDir}/../build/app/outputs/flutter-apk/")
-//        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-//        rename { fileName ->
-//            if (fileName.contains("app-")) {
-//                "app-${variant.baseName}.apk"
-//            } else {
-//                fileName
-//            }
-//        }
-//
-//        // 确保在APK生成后执行
-//        dependsOn(variant.assembleProvider)
-//    }
-//
-//    // 将复制任务添加到构建流程中
-//    variant.assembleProvider.configure {
-//        finalizedBy(copyApkTask)
-//    }
-//}
+// 配置APK输出到Flutter期望的路�?
+android.applicationVariants.all {
+    val variant = this
+    val variantName = variant.name.capitalize()
+
+    // 在构建完成后复制APK文件到Flutter build目录
+    val copyApkTask = tasks.register<Copy>("copy${variantName}ApkToFlutterBuild") {
+        from(variant.outputs.map { it.outputFile })
+        into("${project.rootDir}/../build/app/outputs/flutter-apk/")
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        rename { fileName ->
+            if (fileName.contains("app-")) {
+                "app-debug.apk"
+            } else {
+                fileName
+            }
+        }
+
+        // 确保在APK生成后执�?
+        dependsOn(variant.assembleProvider)
+    }
+
+    // 将复制任务添加到构建流程�?
+    variant.assembleProvider.configure {
+        finalizedBy(copyApkTask)
+    }
+}
+
+
+
+
+
+

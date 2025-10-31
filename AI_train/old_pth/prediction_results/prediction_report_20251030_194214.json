@@ -1,0 +1,212 @@
+{
+  "test_time": "2025-10-30T19:42:14.268920",
+  "model_path": "checkpoints/best_model.pth",
+  "total_test_cases": 12,
+  "test_results": [
+    {
+      "scenario": "强网络场景-1",
+      "network_parameters": {
+        "bandwidth": 100.0,
+        "delay": 20.0,
+        "packet_loss": 0.5
+      },
+      "predictions": {
+        "hotspot_probability": 0.0,
+        "hotspot_recommendation": 0,
+        "quality_score": 1.0,
+        "confidence": 1.0
+      },
+      "decision_analysis": "✅ 决策合理: 强网络正确不推荐热点"
+    },
+    {
+      "scenario": "强网络场景-2",
+      "network_parameters": {
+        "bandwidth": 80.0,
+        "delay": 30.0,
+        "packet_loss": 1.0
+      },
+      "predictions": {
+        "hotspot_probability": 9.656924864295103e-34,
+        "hotspot_recommendation": 0,
+        "quality_score": 1.0,
+        "confidence": 1.0
+      },
+      "decision_analysis": "✅ 决策合理: 强网络正确不推荐热点"
+    },
+    {
+      "scenario": "强网络场景-3",
+      "network_parameters": {
+        "bandwidth": 120.0,
+        "delay": 15.0,
+        "packet_loss": 0.2
+      },
+      "predictions": {
+        "hotspot_probability": 0.0,
+        "hotspot_recommendation": 0,
+        "quality_score": 1.0,
+        "confidence": 1.0
+      },
+      "decision_analysis": "✅ 决策合理: 强网络正确不推荐热点"
+    },
+    {
+      "scenario": "弱网络场景-1",
+      "network_parameters": {
+        "bandwidth": 5.0,
+        "delay": 200.0,
+        "packet_loss": 15.0
+      },
+      "predictions": {
+        "hotspot_probability": 1.0,
+        "hotspot_recommendation": 1,
+        "quality_score": 2.2533634886475022e-37,
+        "confidence": 1.0
+      },
+      "decision_analysis": "✅ 决策合理: 弱网络正确推荐热点"
+    },
+    {
+      "scenario": "弱网络场景-2",
+      "network_parameters": {
+        "bandwidth": 8.0,
+        "delay": 180.0,
+        "packet_loss": 12.0
+      },
+      "predictions": {
+        "hotspot_probability": 1.0,
+        "hotspot_recommendation": 1,
+        "quality_score": 1.1062563376593132e-32,
+        "confidence": 1.0
+      },
+      "decision_analysis": "✅ 决策合理: 弱网络正确推荐热点"
+    },
+    {
+      "scenario": "弱网络场景-3",
+      "network_parameters": {
+        "bandwidth": 3.0,
+        "delay": 250.0,
+        "packet_loss": 20.0
+      },
+      "predictions": {
+        "hotspot_probability": 1.0,
+        "hotspot_recommendation": 1,
+        "quality_score": 0.0,
+        "confidence": 1.0
+      },
+      "decision_analysis": "✅ 决策合理: 弱网络正确推荐热点"
+    },
+    {
+      "scenario": "临界网络场景-1",
+      "network_parameters": {
+        "bandwidth": 25.0,
+        "delay": 80.0,
+        "packet_loss": 5.0
+      },
+      "predictions": {
+        "hotspot_probability": 1.0,
+        "hotspot_recommendation": 1,
+        "quality_score": 0.29643890261650085,
+        "confidence": 1.0
+      },
+      "decision_analysis": "⚠️ 临界情况: 需要人工判断"
+    },
+    {
+      "scenario": "临界网络场景-2",
+      "network_parameters": {
+        "bandwidth": 30.0,
+        "delay": 60.0,
+        "packet_loss": 3.0
+      },
+      "predictions": {
+        "hotspot_probability": 1.0,
+        "hotspot_recommendation": 1,
+        "quality_score": 0.9999837875366211,
+        "confidence": 1.0
+      },
+      "decision_analysis": "⚠️ 临界情况: 需要人工判断"
+    },
+    {
+      "scenario": "临界网络场景-3",
+      "network_parameters": {
+        "bandwidth": 20.0,
+        "delay": 100.0,
+        "packet_loss": 8.0
+      },
+      "predictions": {
+        "hotspot_probability": 1.0,
+        "hotspot_recommendation": 1,
+        "quality_score": 9.43970901445823e-10,
+        "confidence": 1.0
+      },
+      "decision_analysis": "⚠️ 临界情况: 需要人工判断"
+    },
+    {
+      "scenario": "边界测试场景-1",
+      "network_parameters": {
+        "bandwidth": 0.1,
+        "delay": 500.0,
+        "packet_loss": 50.0
+      },
+      "predictions": {
+        "hotspot_probability": 1.0,
+        "hotspot_recommendation": 1,
+        "quality_score": 0.0,
+        "confidence": 1.0
+      },
+      "decision_analysis": "✅ 决策合理: 弱网络正确推荐热点"
+    },
+    {
+      "scenario": "边界测试场景-2",
+      "network_parameters": {
+        "bandwidth": 200.0,
+        "delay": 1.0,
+        "packet_loss": 0.1
+      },
+      "predictions": {
+        "hotspot_probability": 0.0,
+        "hotspot_recommendation": 0,
+        "quality_score": 1.0,
+        "confidence": 1.0
+      },
+      "decision_analysis": "✅ 决策合理: 强网络正确不推荐热点"
+    },
+    {
+      "scenario": "边界测试场景-3",
+      "network_parameters": {
+        "bandwidth": 50.0,
+        "delay": 50.0,
+        "packet_loss": 10.0
+      },
+      "predictions": {
+        "hotspot_probability": 1.0,
+        "hotspot_recommendation": 1,
+        "quality_score": 0.9905063509941101,
+        "confidence": 1.0
+      },
+      "decision_analysis": "⚠️ 临界情况: 需要人工判断"
+    }
+  ],
+  "summary_statistics": {
+    "hotspot_probability": {
+      "mean": 0.6666666666666666,
+      "std": 0.4714045207910317,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "quality_score": {
+      "mean": 0.5239107535076003,
+      "std": 0.48089817858439043,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "confidence": {
+      "mean": 1.0,
+      "std": 0.0,
+      "min": 1.0,
+      "max": 1.0
+    },
+    "decision_distribution": {
+      "recommend_hotspot": 8,
+      "not_recommend_hotspot": 4,
+      "recommend_ratio": 0.6666666666666666
+    }
+  }
+}

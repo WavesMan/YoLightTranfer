@@ -141,14 +141,21 @@ class HttpTransferServer {
       // 获取系统下载目录
       final downloadDir = await DownloadPathService.getDownloadDir();
 
+      // 检查是否是测速包
+      final isSpeedTest = _isSpeedTestFile(fileName, request);
+      
       // 检查是否是第一次接收此文件，如果是则进行接收确认和日志记录
       if (!_activeSessions.containsKey(fileName)) {
         // 获取发送设备信息（从请求头中获取，需要进行 URL 解码）
         final encodedDeviceName = request.headers.value('X-Sender-Device-Name') ?? '未知设备';
         final senderDeviceName = Uri.decodeComponent(encodedDeviceName);
         
-        // 如果有确认回调，则等待用户确认
-        if (onReceiveConfirmation != null) {
+        // 如果是测速包，跳过用户确认
+        if (isSpeedTest) {
+          print('📡 收到测速包: $fileName (${_formatBytes(fileSize)}) 来自: $senderDeviceName');
+          print('✅ 测速包自动接收，跳过用户确认');
+        } else if (onReceiveConfirmation != null) {
+          // 普通文件，如果有确认回调，则等待用户确认
           print('📩 收到文件传输请求: $fileName (${_formatBytes(fileSize)}) 来自: $senderDeviceName');
           
           final confirmed = await onReceiveConfirmation!(senderDeviceName, fileName, fileSize);
@@ -164,28 +171,30 @@ class HttpTransferServer {
           print('✅ 用户接受了文件传输: $fileName');
         }
         
-        // 记录接收开始日志
-        logManager?.addReceiveStartLog(
-          fileName: fileName,
-          fileSize: fileSize,
-          savePath: '$downloadDir/$fileName',
-          sourceDevice: sourceDevice ?? DiscoveredDevice(
-            id: 'unknown',
-            name: senderDeviceName,
-            ip: request.connectionInfo?.remoteAddress.address ?? 'unknown',
-            os: 'unknown',
-            httpPort: port,
-            lastSeenMs: DateTime.now().millisecondsSinceEpoch,
-          ),
-        );
-        
-        // 添加接收任务到任务管理器
-        if (taskManager != null) {
-          taskManager!.addReceivingTask(
-            fileName,
-            fileSize,
-            sourceDevice,
+        // 如果不是测速包，记录接收开始日志
+        if (!isSpeedTest) {
+          logManager?.addReceiveStartLog(
+            fileName: fileName,
+            fileSize: fileSize,
+            savePath: '$downloadDir/$fileName',
+            sourceDevice: sourceDevice ?? DiscoveredDevice(
+              id: 'unknown',
+              name: senderDeviceName,
+              ip: request.connectionInfo?.remoteAddress.address ?? 'unknown',
+              os: 'unknown',
+              httpPort: port,
+              lastSeenMs: DateTime.now().millisecondsSinceEpoch,
+            ),
           );
+          
+          // 添加接收任务到任务管理器
+          if (taskManager != null) {
+            taskManager!.addReceivingTask(
+              fileName,
+              fileSize,
+              sourceDevice,
+            );
+          }
         }
       }
 
@@ -251,34 +260,36 @@ class HttpTransferServer {
                 transferSpeed = _formatSpeed(speedBytesPerSecond);
               }
               
-              // 更新进度日志
-              if (receivedBytes == chunk.length) {
-                // 第一个数据块时，添加进度日志
-                final logId = '${DateTime.now().millisecondsSinceEpoch}_receive_$fileName';
-                _progressLogIds[fileName] = logId;
-                logManager?.addProgressLog(
-                  logId: logId,
-                  type: TransferLogType.receive,
+              // 更新进度日志（仅对非测速包）
+              if (!isSpeedTest) {
+                if (receivedBytes == chunk.length) {
+                  // 第一个数据块时，添加进度日志
+                  final logId = '${DateTime.now().millisecondsSinceEpoch}_receive_$fileName';
+                  _progressLogIds[fileName] = logId;
+                  logManager?.addProgressLog(
+                    logId: logId,
+                    type: TransferLogType.receive,
+                    fileName: fileName,
+                    progress: progress,
+                    transferSpeed: transferSpeed,
+                  );
+                } else {
+                  // 之后的数据块，更新进度日志
+                  logManager?.updateProgressLog(
+                    fileName: fileName,
+                    progress: progress,
+                    transferSpeed: transferSpeed,
+                  );
+                }
+                
+                // 关键修复：同时更新 TaskManager 的进度
+                taskManager?.updateProgress(
                   fileName: fileName,
                   progress: progress,
-                  transferSpeed: transferSpeed,
-                );
-              } else {
-                // 之后的数据块，更新进度日志
-                logManager?.updateProgressLog(
-                  fileName: fileName,
-                  progress: progress,
-                  transferSpeed: transferSpeed,
+                  transferredSize: transferredSizeStr,
+                  eta: transferSpeed,
                 );
               }
-              
-              // 关键修复：同时更新 TaskManager 的进度
-              taskManager?.updateProgress(
-                fileName: fileName,
-                progress: progress,
-                transferredSize: transferredSizeStr,
-                eta: transferSpeed,
-              );
               
               lastUpdateProgress = progress;
               lastSpeedUpdateTime = currentTime;
@@ -369,30 +380,38 @@ class HttpTransferServer {
       final successMsg = '✅ 文件大小校验通过: $fileName (${_formatBytes(fileSize)})';
       print(successMsg);
       
-      // 记录校验成功日志
-      logManager?.addHashLog(
-        message: successMsg,
-        fileName: fileName,
-        expectedHash: '文件大小: ${_formatBytes(fileSize)}',
-        actualHash: '文件大小匹配',
-        hashValid: true,
-      );
+      // 记录校验成功日志（仅对非测速包）
+      if (!isSpeedTest) {
+        logManager?.addHashLog(
+          message: successMsg,
+          fileName: fileName,
+          expectedHash: '文件大小: ${_formatBytes(fileSize)}',
+          actualHash: '文件大小匹配',
+          hashValid: true,
+        );
 
-      // 记录接收完成日志
-      logManager?.addCompleteLog(
-        logId: '${DateTime.now().millisecondsSinceEpoch}_receive_${fileName.hashCode}',
-        type: TransferLogType.receive,
-        fileName: fileName,
-        fileSize: fileSize,
-        savePath: '${session.uploadDir}/$fileName',
-        sourceDevice: sourceDevice,
-      );
-      
-      // 更新任务管理器状态
-      taskManager?.markReceiveCompleted(fileName);
+        // 记录接收完成日志
+        logManager?.addCompleteLog(
+          logId: '${DateTime.now().millisecondsSinceEpoch}_receive_${fileName.hashCode}',
+          type: TransferLogType.receive,
+          fileName: fileName,
+          fileSize: fileSize,
+          savePath: '${session.uploadDir}/$fileName',
+          sourceDevice: sourceDevice,
+        );
+        
+        // 更新任务管理器状态
+        taskManager?.markReceiveCompleted(fileName);
+      }
 
       _activeSessions.remove(fileName);
       print('✅ 文件接收完成: $fileName');
+
+      // 如果是测速包，接收完成后立即删除
+      if (isSpeedTest) {
+        await _deleteSpeedTestFile(session.filePath);
+        print('📊 测速包处理完成，文件已自动删除');
+      }
 
       // 返回成功响应
       request.response.statusCode = 200;
@@ -508,6 +527,38 @@ class HttpTransferServer {
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+  /// 检查是否为测速包
+  bool _isSpeedTestFile(String fileName, HttpRequest request) {
+    // 根据文件名识别测速包
+    if (fileName.startsWith('speedtest_') || fileName.startsWith('quicktest_')) {
+      return true;
+    }
+    
+    // 根据发送设备名识别测速请求
+    final encodedDeviceName = request.headers.value('X-Sender-Device-Name');
+    if (encodedDeviceName != null) {
+      final deviceName = Uri.decodeComponent(encodedDeviceName);
+      if (deviceName.contains('SpeedTestClient') || deviceName.contains('QuickTestClient')) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
+  /// 删除测速包文件
+  Future<void> _deleteSpeedTestFile(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (await file.exists()) {
+        await file.delete();
+        print('🗑️ 测速包已删除: $filePath');
+      }
+    } catch (e) {
+      print('⚠️ 删除测速包失败: $e');
+    }
   }
 
   /// 格式化网速

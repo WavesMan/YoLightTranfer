@@ -1,7 +1,7 @@
 name: yolighttransfer
 description: A modern file transfer application with Material You design.
 publish_to: 'none'
-version: 0.1.2+1
+version: 0.2.0+1
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -29,7 +29,7 @@ dependencies:
   qr_flutter: ^4.1.0
   mobile_scanner: ^3.5.0
   charset: ^2.0.1
-  tflite_flutter: ^0.12.0
+  onnxruntime: ^1.4.1
   device_info_plus: ^12.2.0
   battery_plus: ^7.0.0
 
@@ -45,7 +45,7 @@ msix_config:
   display_name: YoLightTransfer
   publisher_display_name: WaveYo
   identity_name: cn.waveyo.yolighttransfer
-  msix_version: 0.1.2.0
+  msix_version: 0.2.0.0
   certificate_path: 
   certificate_password: 
   logo_path: assets/images/logo.png
@@ -55,14 +55,14 @@ msix_config:
   file_extension:
 
 flutter_launcher_icons:
-  image_path: assets/images/logo.png    # 统一图标源
+  image_path: assets/images/logo.png
   android: "launcher_icon"
 
   ios: true
   web: true
   windows:
     generate: true
-    icon_size: 256                      # Windows 推荐 256×256
+    icon_size: 256
   macos:
     generate: true
   linux:
@@ -81,3 +81,9 @@ flutter:
     - family: MiSans
       fonts:
         - asset: assets/front/MiSans-Regular.ttf
+
+
+
+
+
+

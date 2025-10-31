@@ -1,0 +1,65 @@
+[project]
+name = "ai-network-quality"
+version = "0.1.0"
+description = "AI model for network quality analysis and hotspot recommendation"
+authors = [
+    {name = "YoLightTransfer Team", email = "team@yolighttransfer.com"}
+]
+requires-python = ">=3.8.1"
+dependencies = [
+    # 1. PyTorch 生态（适配 Python 3.13 + CUDA 12.6，从南大镜像下载）
+    "torch==2.4.0+cu126",          # 明确指定cu126+cp313版本
+    "torchvision==0.19.0+cu126",   
+    "torchaudio==2.4.0+cu126",
+    
+    # 2. 核心依赖（均支持 Python 3.13，参考清华源/cp313 包）
+    "numpy>=1.26.0,<2.0.0",        # 适配 torch 2.4.0，支持 Python 3.13
+    "pandas>=2.2.0",               # pandas 2.2.0+ 提供 cp313  wheel
+    "matplotlib>=3.8.0",           # matplotlib 3.8.0+ 支持 Python 3.13
+    "seaborn>=0.13.0",             # 适配 pandas 2.2.0+，支持 Python 3.13
+    "scikit-learn>=1.4.0",         # 1.4.0+ 提供 cp313 包，兼容 numpy 1.26+
+    "jupyterlab>=4.2.0",           # 4.2.0+ 支持 Python 3.13，适配最新依赖
+    "wandb>=0.16.0",               # 0.16.0+ 提供 cp313  wheel，兼容 Python 3.13
+    "tqdm>=4.66.0",                # 4.66.0+ 支持 Python 3.13
+    "requests>=2.32.0",            # 2.32.0+ 适配 Python 3.13 的网络模块
+    "psutil>=6.0.0",               # 6.0.0+ 提供 cp313 包，支持 Windows/Linux
+    "pynvml>=11.6.0",              # 11.6.0+ 支持 Python 3.13，适配新 GPU 驱动
+    "pywin32>=308; platform_system == 'Windows'",  # 308+ 提供 cp313 包，支持窗口功能
+    "onnxscript>=0.3.0",           # 0.3.0+ 支持 Python 3.13，适配 onnx 1.9.0
+    "onnx==1.9.0",                 # 保留 ONNX 1.9 模型兼容性（依赖 protobuf<4.0.0）
+    "onnxruntime-gpu>=1.18.0",     # 1.18.0+ 提供 cp313 包，兼容 ONNX 1.9+ 和 CUDA 12.6
+    "protobuf<4.0.0",              # 适配 onnx==1.9.0（onnx 1.9 不支持 protobuf 4.x）
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",    # 7.4.0+支持Python 3.13
+    "black>=24.0.0",    # 24.0.0+支持py313
+    "flake8>=7.0.0",    # 7.0.0+支持Python 3.13
+    "mypy>=1.8.0",      # 1.8.0+适配Python 3.13
+]
+
+[build-system]
+requires = ["setuptools>=45.0", "wheel"]
+build-backward-compatible = true
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[[tool.uv.index]]
+url = "https://mirrors.nju.edu.cn/pytorch/whl/cu126/"
+name = "nju-pytorch-cu126"
+priority = 1  # 优先级1 > 清华源的2，确保优先下载 cu126 版本
+
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+name = "tuna"
+priority = 2
+default = true
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true

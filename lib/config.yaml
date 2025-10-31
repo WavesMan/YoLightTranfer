@@ -1,6 +1,6 @@
 app:
-  version: 0.1.2
-  buildNumber: beta-003
+  version: 0.2.0
+  buildNumber: beta-011
   # 生产配置
   checkUpdateUrl: 'https://cloud.waveyo.cn/mirror/YoLightTransfer/version.json'
   # 开发配置
@@ -21,7 +21,7 @@ data_collection:
   anonymize_data: true
 
 about: |
-  YoLightTransfer BETA v0.1.2
+  YoLightTransfer BETA v0.2.0
   
   一个轻量级的局域网跨平台文件传输工具
   

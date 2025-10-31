@@ -1,0 +1,344 @@
+{
+  "test_time": "2025-10-30T19:23:04.479387",
+  "model_path": "checkpoints/best_model.pth",
+  "total_distributions": 5,
+  "test_results": [
+    {
+      "distribution_name": "标准分布",
+      "scenario_weights": {
+        "strong_network": 0.4,
+        "weak_network": 0.3,
+        "critical_network": 0.3
+      },
+      "test_samples": 500,
+      "metrics": {
+        "accuracy": 0.456,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1_score": 0.0,
+        "auc_roc": 0.5335558565531475,
+        "quality_mse": 0.0418626107275486,
+        "quality_mae": 0.1537403017282486,
+        "quality_r2": -0.0027244091033935547,
+        "confidence_mse": 0.05122995749115944,
+        "confidence_mae": 0.20984162390232086,
+        "confidence_r2": -0.010960936546325684,
+        "confusion_matrix": [
+          [
+            228,
+            0
+          ],
+          [
+            272,
+            0
+          ]
+        ]
+      },
+      "distribution_stats": {
+        "scenario_distribution": {
+          "strong_network": 0.28,
+          "weak_network": 0.21,
+          "critical_network": 0.21,
+          "boundary": 0.15,
+          "conflict": 0.15
+        },
+        "hotspot_recommendation_ratio": 0.544,
+        "bandwidth_statistics": {
+          "mean": 28.20408779126275,
+          "std": 24.647015070809488,
+          "min": 1.0554346105087378,
+          "max": 111.21462012027527
+        },
+        "delay_statistics": {
+          "mean": 133.98188888332217,
+          "std": 170.42020291063426,
+          "min": 1.0,
+          "max": 1578.9280534659667
+        },
+        "packet_loss_statistics": {
+          "mean": 5.788028486844411,
+          "std": 6.9257264971246695,
+          "min": 0.0,
+          "max": 44.909153695431264
+        }
+      }
+    },
+    {
+      "distribution_name": "偏向强网络",
+      "scenario_weights": {
+        "strong_network": 0.7,
+        "weak_network": 0.2,
+        "critical_network": 0.1
+      },
+      "test_samples": 500,
+      "metrics": {
+        "accuracy": 0.646,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1_score": 0.0,
+        "auc_roc": 0.6143324412726733,
+        "quality_mse": 0.05373375117778778,
+        "quality_mae": 0.1819382607936859,
+        "quality_r2": -0.12359607219696045,
+        "confidence_mse": 0.05249270051717758,
+        "confidence_mae": 0.2104264795780182,
+        "confidence_r2": -0.011114358901977539,
+        "confusion_matrix": [
+          [
+            323,
+            0
+          ],
+          [
+            177,
+            0
+          ]
+        ]
+      },
+      "distribution_stats": {
+        "scenario_distribution": {
+          "strong_network": 0.49,
+          "conflict": 0.15,
+          "boundary": 0.15,
+          "weak_network": 0.14,
+          "critical_network": 0.07
+        },
+        "hotspot_recommendation_ratio": 0.354,
+        "bandwidth_statistics": {
+          "mean": 36.92391040157395,
+          "std": 26.95127830725802,
+          "min": 0.8213357206140133,
+          "max": 113.93015770363041
+        },
+        "delay_statistics": {
+          "mean": 116.65800791893548,
+          "std": 175.63194872472354,
+          "min": 6.030313147538154,
+          "max": 1601.1933481876547
+        },
+        "packet_loss_statistics": {
+          "mean": 4.26924087758599,
+          "std": 5.799259294214347,
+          "min": 0.0,
+          "max": 33.94096057321518
+        }
+      }
+    },
+    {
+      "distribution_name": "偏向弱网络",
+      "scenario_weights": {
+        "strong_network": 0.1,
+        "weak_network": 0.7,
+        "critical_network": 0.2
+      },
+      "test_samples": 500,
+      "metrics": {
+        "accuracy": 0.312,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1_score": 0.0,
+        "auc_roc": 0.4428760435301133,
+        "quality_mse": 0.03975161164999008,
+        "quality_mae": 0.15360966324806213,
+        "quality_r2": -0.3099478483200073,
+        "confidence_mse": 0.04659603163599968,
+        "confidence_mae": 0.19830484688282013,
+        "confidence_r2": -0.001363515853881836,
+        "confusion_matrix": [
+          [
+            156,
+            0
+          ],
+          [
+            344,
+            0
+          ]
+        ]
+      },
+      "distribution_stats": {
+        "scenario_distribution": {
+          "weak_network": 0.488,
+          "conflict": 0.15,
+          "boundary": 0.15,
+          "critical_network": 0.14,
+          "strong_network": 0.072
+        },
+        "hotspot_recommendation_ratio": 0.688,
+        "bandwidth_statistics": {
+          "mean": 16.702173260141624,
+          "std": 19.308485980184084,
+          "min": 0.6843730361483136,
+          "max": 94.75654558279089
+        },
+        "delay_statistics": {
+          "mean": 187.21953530298754,
+          "std": 198.77526542373022,
+          "min": 6.026684341218816,
+          "max": 2289.3593859168973
+        },
+        "packet_loss_statistics": {
+          "mean": 8.033052686690754,
+          "std": 7.074945626582256,
+          "min": 0.0,
+          "max": 35.24278955153492
+        }
+      }
+    },
+    {
+      "distribution_name": "偏向临界网络",
+      "scenario_weights": {
+        "strong_network": 0.2,
+        "weak_network": 0.2,
+        "critical_network": 0.6
+      },
+      "test_samples": 500,
+      "metrics": {
+        "accuracy": 0.36,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1_score": 0.0,
+        "auc_roc": 0.4708333333333333,
+        "quality_mse": 0.027471007779240608,
+        "quality_mae": 0.11501815170049667,
+        "quality_r2": -0.00496828556060791,
+        "confidence_mse": 0.05135174095630646,
+        "confidence_mae": 0.21159079670906067,
+        "confidence_r2": -0.2866322994232178,
+        "confusion_matrix": [
+          [
+            180,
+            0
+          ],
+          [
+            320,
+            0
+          ]
+        ]
+      },
+      "distribution_stats": {
+        "scenario_distribution": {
+          "critical_network": 0.42,
+          "conflict": 0.15,
+          "boundary": 0.15,
+          "strong_network": 0.14,
+          "weak_network": 0.14
+        },
+        "hotspot_recommendation_ratio": 0.64,
+        "bandwidth_statistics": {
+          "mean": 25.000407234315524,
+          "std": 20.333510091173842,
+          "min": 0.9864582442625558,
+          "max": 95.57182456167907
+        },
+        "delay_statistics": {
+          "mean": 143.2525492063363,
+          "std": 211.24525198975428,
+          "min": 7.67127086021185,
+          "max": 3024.3416034149423
+        },
+        "packet_loss_statistics": {
+          "mean": 5.9062401279964,
+          "std": 5.831148873842396,
+          "min": 0.0,
+          "max": 34.687418761797666
+        }
+      }
+    },
+    {
+      "distribution_name": "极端分布",
+      "scenario_weights": {
+        "strong_network": 0.9,
+        "weak_network": 0.05,
+        "critical_network": 0.05
+      },
+      "test_samples": 500,
+      "metrics": {
+        "accuracy": 0.756,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1_score": 0.0,
+        "auc_roc": 0.6356687483736667,
+        "quality_mse": 0.058736301958560944,
+        "quality_mae": 0.1933639496564865,
+        "quality_r2": -0.5486459732055664,
+        "confidence_mse": 0.051892075687646866,
+        "confidence_mae": 0.20926494896411896,
+        "confidence_r2": -0.036411285400390625,
+        "confusion_matrix": [
+          [
+            378,
+            0
+          ],
+          [
+            122,
+            0
+          ]
+        ]
+      },
+      "distribution_stats": {
+        "scenario_distribution": {
+          "strong_network": 0.632,
+          "conflict": 0.15,
+          "boundary": 0.15,
+          "critical_network": 0.034,
+          "weak_network": 0.034
+        },
+        "hotspot_recommendation_ratio": 0.244,
+        "bandwidth_statistics": {
+          "mean": 44.47594121227171,
+          "std": 26.225214626929713,
+          "min": 0.7619284658610623,
+          "max": 113.93015770363041
+        },
+        "delay_statistics": {
+          "mean": 92.1354921449755,
+          "std": 190.12220347471467,
+          "min": 2.64522769466188,
+          "max": 2043.052562659437
+        },
+        "packet_loss_statistics": {
+          "mean": 2.962480858783638,
+          "std": 4.836016245688887,
+          "min": 0.0,
+          "max": 37.36673892358083
+        }
+      }
+    }
+  ],
+  "generalization_analysis": {
+    "performance_stability": {
+      "f1_stability": 0.0,
+      "quality_stability": 0.0,
+      "confidence_stability": 0.0,
+      "overall_stability": 0.0
+    },
+    "performance_degradation": {
+      "f1_degradation": 0.0,
+      "quality_degradation": -89.58461319681456,
+      "confidence_degradation": -6.652664034715652,
+      "overall_degradation": -32.07909241051007
+    },
+    "distribution_performance": {
+      "f1_scores": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "quality_r2_scores": [
+        -0.0027244091033935547,
+        -0.12359607219696045,
+        -0.3099478483200073,
+        -0.00496828556060791,
+        -0.5486459732055664
+      ],
+      "confidence_r2_scores": [
+        -0.010960936546325684,
+        -0.011114358901977539,
+        -0.001363515853881836,
+        -0.2866322994232178,
+        -0.036411285400390625
+      ]
+    }
+  }
+}

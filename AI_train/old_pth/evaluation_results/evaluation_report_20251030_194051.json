@@ -1,0 +1,62 @@
+{
+  "evaluation_time": "2025-10-30T19:40:51.786564",
+  "model_path": "checkpoints/best_model.pth",
+  "model_config": {
+    "input_size": 3,
+    "hidden_sizes": [
+      128,
+      64,
+      32,
+      16
+    ],
+    "dropout_rate": 0.2,
+    "use_batch_norm": true
+  },
+  "test_data_info": {
+    "samples": 1000,
+    "features": 3,
+    "outputs": 3
+  },
+  "performance_metrics": {
+    "accuracy": 0.645,
+    "precision": 0.5893089960886571,
+    "recall": 0.9186991869918699,
+    "f1_score": 0.7180301826846703,
+    "auc_roc": 0.6646981627296589,
+    "quality_mse": 0.005764589179307222,
+    "quality_mae": 0.06005812808871269,
+    "quality_r2": 0.8343217372894287,
+    "confidence_mse": 0.04690541699528694,
+    "confidence_mae": 0.16880565881729126,
+    "confidence_r2": 0.026435911655426025,
+    "confusion_matrix": [
+      [
+        193,
+        315
+      ],
+      [
+        40,
+        452
+      ]
+    ]
+  },
+  "performance_summary": {
+    "hotspot_recommendation": {
+      "accuracy": 0.645,
+      "f1_score": 0.7180301826846703,
+      "auc_roc": 0.6646981627296589,
+      "status": "良好"
+    },
+    "quality_prediction": {
+      "mae": 0.06005812808871269,
+      "r2": 0.8343217372894287,
+      "status": "优秀"
+    },
+    "confidence_prediction": {
+      "mae": 0.16880565881729126,
+      "r2": 0.026435911655426025,
+      "status": "需要改进"
+    },
+    "overall_score": 0.526262610543175
+  }
+}

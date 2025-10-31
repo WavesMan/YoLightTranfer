@@ -1,5 +1,5 @@
-__init__
 data
-main
-models
+hardware
+onnx_model
+onnx_trainer
 utils

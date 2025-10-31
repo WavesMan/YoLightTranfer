@@ -21,7 +21,7 @@ class NetworkQualityCard extends StatelessWidget {
       builder: (context, qualityManager, _) {
         final result = qualityManager.lastResult;
         final state = qualityManager.currentState;
-        final networkQuality = result?.recommendation?.networkQuality;
+        final networkQuality = result?.recommendation?.networkQuality ?? result?.gatewayQuality;
 
         return Card(
           elevation: 2,
@@ -73,12 +73,28 @@ class NetworkQualityCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                ] else if (networkQuality != null) ...[
-                  _buildQualityRow('带宽', '${networkQuality.bandwidthMbps.toStringAsFixed(2)} Mbps'),
-                  _buildQualityRow('延迟', '${networkQuality.avgDelayMs.toStringAsFixed(0)} ms'),
-                  _buildQualityRow('丢包率', '${networkQuality.packetLossRate.toStringAsFixed(2)}%'),
-                  
-                  const SizedBox(height: 8),
+                ] else if (state == NetworkQualityState.gatewayTesting) ...[
+                  const Center(
+                    child: Column(
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 8),
+                        Text('正在测试网关网络质量...'),
+                        SizedBox(height: 4),
+                        Text(
+                          '附近无其他设备，已切换到网关测速',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else if (networkQuality != null || state == NetworkQualityState.normalNetwork) ...[
+                  if (networkQuality != null) ...[
+                    _buildQualityRow('带宽', _formatBandwidth(networkQuality.bandwidthMbps)),
+                    _buildQualityRow('延迟', _formatDelay(networkQuality.avgDelayMs)),
+                    _buildQualityRow('丢包率', _formatPacketLoss(networkQuality.packetLossRate)),
+                    const SizedBox(height: 8),
+                  ],
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
@@ -120,14 +136,14 @@ class NetworkQualityCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '附近无其他开启设备',
+                          '附近无其他设备',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: Colors.grey.shade600,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '等待检查网络质量中',
+                          '网关测速失败或不可用',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: Colors.grey.shade500,
                           ),
@@ -209,6 +225,8 @@ class NetworkQualityCard extends StatelessWidget {
         return Colors.green;
       case NetworkQualityState.noDevices:
         return Colors.grey;
+      case NetworkQualityState.gatewayTesting:
+        return Colors.blue;
       case NetworkQualityState.error:
         return Colors.red;
       case NetworkQualityState.detecting:
@@ -216,6 +234,55 @@ class NetworkQualityCard extends StatelessWidget {
       case NetworkQualityState.idle:
       default:
         return Colors.grey;
+    }
+  }
+
+  /// 格式化带宽显示（符号化）
+  String _formatBandwidth(double bandwidthMbps) {
+    if (bandwidthMbps > 100) {
+      return '>100 Mbps'; // 高速网络
+    } else if (bandwidthMbps > 50) {
+      return '≈${bandwidthMbps.toStringAsFixed(0)} Mbps'; // 约等于
+    } else if (bandwidthMbps > 20) {
+      return '≈${bandwidthMbps.toStringAsFixed(0)} Mbps'; // 约等于
+    } else if (bandwidthMbps > 10) {
+      return '≈${bandwidthMbps.toStringAsFixed(0)} Mbps'; // 约等于
+    } else if (bandwidthMbps > 5) {
+      return '≈${bandwidthMbps.toStringAsFixed(0)} Mbps'; // 约等于
+    } else if (bandwidthMbps > 1) {
+      return '≈${bandwidthMbps.toStringAsFixed(1)} Mbps'; // 约等于
+    } else {
+      return '<1 Mbps'; // 低速网络
+    }
+  }
+
+  /// 格式化延迟显示（符号化）
+  String _formatDelay(double delayMs) {
+    if (delayMs < 10) {
+      return '<10 ms'; // 极低延迟
+    } else if (delayMs < 20) {
+      return '≈${delayMs.toStringAsFixed(0)} ms'; // 约等于
+    } else if (delayMs < 50) {
+      return '≈${delayMs.toStringAsFixed(0)} ms'; // 约等于
+    } else if (delayMs < 100) {
+      return '≈${delayMs.toStringAsFixed(0)} ms'; // 约等于
+    } else {
+      return '>100 ms'; // 高延迟
+    }
+  }
+
+  /// 格式化丢包率显示（符号化）
+  String _formatPacketLoss(double packetLossRate) {
+    if (packetLossRate < 0.1) {
+      return '≈0%'; // 无丢包
+    } else if (packetLossRate < 1) {
+      return '≈${packetLossRate.toStringAsFixed(1)}%'; // 约等于
+    } else if (packetLossRate < 5) {
+      return '≈${packetLossRate.toStringAsFixed(1)}%'; // 约等于
+    } else if (packetLossRate < 10) {
+      return '≈${packetLossRate.toStringAsFixed(1)}%'; // 约等于
+    } else {
+      return '>10%'; // 严重丢包
     }
   }
 }

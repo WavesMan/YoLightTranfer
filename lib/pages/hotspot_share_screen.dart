@@ -87,9 +87,7 @@ class _HotspotShareScreenState extends State<HotspotShareScreen> {
           children: [
             // 网络质量卡片
             NetworkQualityCard(
-              onManualDetection: () => _startManualDetection(
-                Provider.of<AINetworkQualityManager>(context, listen: false)
-              ),
+              onManualDetection: _startManualDetection,
             ),
             const SizedBox(height: 16),
             
@@ -239,8 +237,9 @@ class _HotspotShareScreenState extends State<HotspotShareScreen> {
   }
 
   /// 手动开始网络质量检测
-  Future<void> _startManualDetection(AINetworkQualityManager qualityManager) async {
-    await qualityManager.startDetection();
+  Future<void> _startManualDetection() async {
+    final qualityManager = Provider.of<AINetworkQualityManager>(context, listen: false);
+    await qualityManager.startDetection(forceRefresh: true);
   }
 
   /// 获取系统实际生成的热点信息

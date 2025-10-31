@@ -2,10 +2,11 @@
 // 负责管理网络质量检测的全局状态、弹窗逻辑和用户交互
 
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:yolighttransfer/ai/ai_network_advisor.dart';
 import 'package:yolighttransfer/ai/network_quality_analyzer.dart';
-import 'package:yolighttransfer/services/network_testing/lan_network_tester.dart';
+import 'package:yolighttransfer/services/device/device_manager.dart';
 import 'package:yolighttransfer/services/network_data_collector.dart';
 import 'package:yolighttransfer/services/data_upload_service.dart';
 
@@ -14,22 +15,25 @@ enum NetworkQualityState {
   idle,           // 空闲状态
   detecting,      // 检测中
   noDevices,      // 无其他设备
+  gatewayTesting, // 网关测速中
   weakNetwork,    // 弱网推荐
   normalNetwork,  // 正常网络
   error,          // 检测错误
 }
 
-/// 网络质量检测结果
+  /// 网络质量检测结果
 class NetworkQualityResult {
   final NetworkQualityState state;
   final String message;
   final AIRecommendation? recommendation;
+  final NetworkQuality? gatewayQuality; // 网关测速结果
   final DateTime timestamp;
 
   NetworkQualityResult({
     required this.state,
     required this.message,
     this.recommendation,
+    this.gatewayQuality, // 网关测速结果
     required this.timestamp,
   });
 
@@ -39,11 +43,30 @@ class NetworkQualityResult {
   }
 }
 
+/// 网络连接状态结果
+class ConnectivityResult {
+  final bool isConnected;
+  final bool hasWifi;
+  final bool hasMobile;
+  final int interfaceCount;
+
+  const ConnectivityResult({
+    required this.isConnected,
+    required this.hasWifi,
+    required this.hasMobile,
+    required this.interfaceCount,
+  });
+
+  @override
+  String toString() {
+    return 'ConnectivityResult(isConnected: $isConnected, hasWifi: $hasWifi, hasMobile: $hasMobile, interfaceCount: $interfaceCount)';
+  }
+}
+
 /// AI网络质量检测管理器
 class AINetworkQualityManager extends ChangeNotifier {
   final AINetworkAdvisor _networkAdvisor;
   final NetworkQualityAnalyzer _networkAnalyzer; // 保留以兼容历史 API 或备用测量
-  final LanNetworkTester _lanTester;
   
   NetworkQualityState _currentState = NetworkQualityState.idle;
   NetworkQualityResult? _lastResult;
@@ -70,12 +93,11 @@ class AINetworkQualityManager extends ChangeNotifier {
   AINetworkQualityManager({
     required AINetworkAdvisor networkAdvisor,
     required NetworkQualityAnalyzer networkAnalyzer,
-    required LanNetworkTester lanTester,
+    required DeviceManager deviceManager,
     NetworkDataCollector? dataCollector,
     DataUploadService? uploadService,
   })  : _networkAdvisor = networkAdvisor,
         _networkAnalyzer = networkAnalyzer,
-        _lanTester = lanTester,
         _dataCollector = dataCollector,
         _uploadService = uploadService;
 
@@ -103,7 +125,7 @@ class AINetworkQualityManager extends ChangeNotifier {
   }
 
   /// 开始网络质量检测
-  Future<NetworkQualityResult> startDetection() async {
+  Future<NetworkQualityResult> startDetection({bool forceRefresh = false}) async {
     if (!_isDetectionEnabled) {
       return NetworkQualityResult(
         state: NetworkQualityState.idle,
@@ -112,8 +134,8 @@ class AINetworkQualityManager extends ChangeNotifier {
       );
     }
 
-    // 缓存命中：30s 内直接返回上次结果，避免 UI 抖动
-    if (_lastResult != null && _lastDetectionTime != null) {
+    // 缓存命中：30s 内直接返回上次结果，避免 UI 抖动（除非强制刷新）
+    if (!forceRefresh && _lastResult != null && _lastDetectionTime != null) {
       final since = DateTime.now().difference(_lastDetectionTime!);
       if (since < _cacheTtl) {
         return _lastResult!;
@@ -123,14 +145,11 @@ class AINetworkQualityManager extends ChangeNotifier {
     _updateState(NetworkQualityState.detecting, '正在检测网络质量...');
     
     try {
-      // 主动对等测速，最长 6s
-      final metrics = await _lanTester.run().timeout(const Duration(seconds: 6));
-
-      // 转换为统一网络质量结构
+      // TODO: 重构测速实现 - 临时使用模拟数据
       final quality = NetworkQuality(
-        bandwidthMbps: metrics.bandwidthMbps,
-        packetLossRate: metrics.lossRate,
-        avgDelayMs: metrics.avgDelayMs,
+        bandwidthMbps: 10.0, // 模拟带宽
+        packetLossRate: 0.0, // 模拟丢包率
+        avgDelayMs: 50.0, // 模拟延迟
         timestamp: DateTime.now(),
       );
 
@@ -174,27 +193,9 @@ class AINetworkQualityManager extends ChangeNotifier {
       );
       
       return result;
-    } on NoDevicesException {
-      final result = NetworkQualityResult(
-        state: NetworkQualityState.noDevices,
-        message: '附近无其他开启设备等待检查网络质量中',
-        timestamp: DateTime.now(),
-      );
-      _lastResult = result;
-      _lastDetectionTime = DateTime.now();
-      _updateState(NetworkQualityState.noDevices, result.message);
-      return result;
-    } on TimeoutException {
-      final result = NetworkQualityResult(
-        state: NetworkQualityState.error,
-        message: '网络质量检测超时',
-        timestamp: DateTime.now(),
-      );
-      _lastResult = result;
-      _lastDetectionTime = DateTime.now();
-      _updateState(NetworkQualityState.error, result.message);
-      return result;
     } catch (e) {
+      print('❌ 网络质量检测失败: $e');
+      
       final result = NetworkQualityResult(
         state: NetworkQualityState.error,
         message: '网络质量检测失败: $e',
@@ -466,4 +467,5 @@ class AINetworkQualityManager extends ChangeNotifier {
   Stream<UploadProgress>? getDataUploadProgress() {
     return _uploadService?.uploadProgress;
   }
+
 }

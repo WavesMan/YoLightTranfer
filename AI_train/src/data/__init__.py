@@ -1,13 +1,6 @@
-"""
-Data collection and preprocessing modules for network quality analysis.
-"""
-
-from .collector import NetworkDataCollector
-from .generator import DataGenerator
+# 数据模块
+from .generator import SmartDataGenerator
 from .preprocessor import DataPreprocessor
+from .scaler import FeatureScaler
 
-__all__ = [
-    "NetworkDataCollector",
-    "DataGenerator", 
-    "DataPreprocessor",
-]
+__all__ = ['SmartDataGenerator', 'DataPreprocessor', 'FeatureScaler']
