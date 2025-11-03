@@ -1,6 +1,14 @@
-# 工具模块
-from .config import ConfigManager
-from .monitor import TrainingMonitor
-from .logger import TrainingLogger
+"""
+Utility modules for the AI Network Quality Analysis project.
 
-__all__ = ['ConfigManager', 'TrainingMonitor', 'TrainingLogger']
+This package contains helper functions, configuration management,
+and utility classes used throughout the project.
+"""
+
+from .config import Config
+from .metrics import ModelMetrics
+
+__all__ = [
+    "Config",
+    "ModelMetrics",
+]

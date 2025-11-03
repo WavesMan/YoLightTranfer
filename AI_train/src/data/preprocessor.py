@@ -1,382 +1,270 @@
 """
-数据预处理器
-对网络质量数据进行预处理和特征工程
+Data Preprocessor for Network Quality Analysis
+
+This module handles data preprocessing, feature engineering, and data cleaning
+for network quality data before model training.
 """
 
-import numpy as np
 import pandas as pd
-from typing import Dict, List, Tuple, Optional
+import numpy as np
+from typing import Tuple, Dict, List
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.model_selection import train_test_split
 import warnings
-warnings.filterwarnings('ignore')
 
 
 class DataPreprocessor:
-    """数据预处理器 - 处理网络质量数据"""
+    """
+    Preprocesses network quality data for AI model training.
     
-    def __init__(self, config: Dict = None):
-        """
-        初始化数据预处理器
-        
-        Args:
-            config: 预处理配置
-        """
-        self.config = config or {}
-        self.scalers = {}
-        self.feature_columns = []
-        self.target_columns = []
-        
-        # 默认配置
-        self.default_config = {
-            'test_size': 0.2,
-            'validation_size': 0.1,
-            'random_state': 42,
-            'scale_features': True,
-            'feature_engineering': True,
-            'handle_outliers': True
-        }
-        
-        # 更新配置
-        self.default_config.update(self.config)
-        self.config = self.default_config
+    This class handles:
+    - Data cleaning and outlier removal
+    - Feature scaling and normalization
+    - Feature engineering
+    - Train-test splitting
+    - Data validation
+    """
+    
+    def __init__(self):
+        """Initialize preprocessor with default parameters."""
+        self.scaler = StandardScaler()
+        self.feature_columns = ["bandwidthMbps", "avgDelayMs", "packetLossRate"]
+        self.label_columns = ["shouldRecommendHotspot", "qualityScore", "confidence"]
+        self.is_fitted = False
     
     def preprocess_data(self, df: pd.DataFrame, 
-                       feature_columns: List[str] = None,
-                       target_columns: List[str] = None) -> Dict[str, np.ndarray]:
+                       test_size: float = 0.2, 
+                       validation_size: float = 0.1,
+                       random_state: int = 42) -> Tuple:
         """
-        预处理数据
+        Preprocess the complete dataset for training.
         
         Args:
-            df: 原始数据DataFrame
-            feature_columns: 特征列名列表
-            target_columns: 目标列名列表
+            df: Input DataFrame with network data
+            test_size: Proportion of data for testing
+            validation_size: Proportion of training data for validation
+            random_state: Random seed for reproducibility
             
         Returns:
-            预处理后的数据字典
+            Tuple of (X_train, X_val, X_test, y_train, y_val, y_test, feature_scaler)
         """
-        print("开始数据预处理...")
+        # Validate input data
+        self._validate_data(df)
         
-        # 设置特征和目标列
-        self._setup_columns(df, feature_columns, target_columns)
+        # Clean data
+        df_clean = self._clean_data(df)
         
-        # 复制数据避免修改原始数据
-        processed_df = df.copy()
+        # Extract features and labels
+        X = df_clean[self.feature_columns].values
+        y = df_clean[self.label_columns].values
         
-        # 数据清洗
-        processed_df = self._clean_data(processed_df)
+        # Split data
+        X_temp, X_test, y_temp, y_test = train_test_split(
+            X, y, test_size=test_size, random_state=random_state, stratify=y[:, 0]
+        )
         
-        # 特征工程
-        if self.config['feature_engineering']:
-            processed_df = self._feature_engineering(processed_df)
+        # Further split temp data into train and validation
+        val_size_adjusted = validation_size / (1 - test_size)
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_temp, y_temp, test_size=val_size_adjusted, 
+            random_state=random_state, stratify=y_temp[:, 0]
+        )
         
-        # 处理异常值
-        if self.config['handle_outliers']:
-            processed_df = self._handle_outliers(processed_df)
+        # Scale features
+        X_train_scaled = self.scaler.fit_transform(X_train)
+        X_val_scaled = self.scaler.transform(X_val)
+        X_test_scaled = self.scaler.transform(X_test)
         
-        # 特征缩放
-        if self.config['scale_features']:
-            processed_df = self._scale_features(processed_df)
+        self.is_fitted = True
         
-        # 分割数据集
-        data_splits = self._split_data(processed_df)
-        
-        print("数据预处理完成!")
-        return data_splits
+        return (X_train_scaled, X_val_scaled, X_test_scaled, 
+                y_train, y_val, y_test, self.scaler)
     
-    def _setup_columns(self, df: pd.DataFrame, feature_columns: List[str], target_columns: List[str]):
-        """设置特征和目标列"""
-        if feature_columns is None:
-            # 默认特征列
-            self.feature_columns = [
-                'bandwidth_mbps', 'avg_delay_ms', 'packet_loss_rate',
-                'hour_of_day', 'day_of_week', 'is_weekend', 'is_peak_hour',
-                'network_wifi', 'network_cellular', 'network_ethernet', 'network_fiber'
-            ]
-            # 只保留数据中存在的列
-            self.feature_columns = [col for col in self.feature_columns if col in df.columns]
-        else:
-            self.feature_columns = feature_columns
+    def _validate_data(self, df: pd.DataFrame):
+        """Validate input data structure and quality."""
+        required_columns = self.feature_columns + self.label_columns
         
-        if target_columns is None:
-            # 默认目标列
-            self.target_columns = [
-                'hotspot_probability', 'quality_score', 'confidence'
-            ]
-            # 只保留数据中存在的列
-            self.target_columns = [col for col in self.target_columns if col in df.columns]
-        else:
-            self.target_columns = target_columns
+        # Check for required columns
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
         
-        print(f"特征列: {self.feature_columns}")
-        print(f"目标列: {self.target_columns}")
+        # Check for NaN values
+        if df[required_columns].isna().any().any():
+            warnings.warn("Dataset contains NaN values. They will be handled during cleaning.")
+        
+        # Check data types
+        for col in self.feature_columns:
+            if not pd.api.types.is_numeric_dtype(df[col]):
+                raise ValueError(f"Column {col} must be numeric")
     
     def _clean_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """数据清洗"""
-        print("数据清洗...")
+        """Clean and prepare data for processing."""
+        df_clean = df.copy()
         
-        # 检查缺失值
-        missing_count = df.isnull().sum().sum()
-        if missing_count > 0:
-            print(f"发现 {missing_count} 个缺失值，进行填充...")
-            # 数值列用中位数填充
-            numeric_cols = df.select_dtypes(include=[np.number]).columns
-            for col in numeric_cols:
-                if df[col].isnull().any():
-                    df[col].fillna(df[col].median(), inplace=True)
+        # Handle NaN values
+        df_clean[self.feature_columns] = df_clean[self.feature_columns].fillna(
+            df_clean[self.feature_columns].median()
+        )
         
-        # 检查重复值
-        duplicate_count = df.duplicated().sum()
-        if duplicate_count > 0:
-            print(f"发现 {duplicate_count} 个重复值，进行去重...")
-            df = df.drop_duplicates()
-        
-        # 检查无限值
-        inf_count = np.isinf(df.select_dtypes(include=[np.number])).sum().sum()
-        if inf_count > 0:
-            print(f"发现 {inf_count} 个无限值，进行替换...")
-            numeric_cols = df.select_dtypes(include=[np.number]).columns
-            for col in numeric_cols:
-                df[col] = df[col].replace([np.inf, -np.inf], np.nan)
-                df[col].fillna(df[col].median(), inplace=True)
-        
-        return df
-    
-    def _feature_engineering(self, df: pd.DataFrame) -> pd.DataFrame:
-        """特征工程"""
-        print("特征工程...")
-        
-        # 基础特征
-        if 'bandwidth_mbps' in df.columns and 'avg_delay_ms' in df.columns:
-            # 带宽延迟比 (越高越好)
-            df['bandwidth_delay_ratio'] = df['bandwidth_mbps'] / (df['avg_delay_ms'] + 1e-6)
-            
-            # 网络效率指标
-            df['network_efficiency'] = (
-                df['bandwidth_mbps'] / 100.0 * 
-                (1 - df['avg_delay_ms'] / 500.0) * 
-                (1 - df.get('packet_loss_rate', 0) / 0.1)
-            )
-        
-        if 'packet_loss_rate' in df.columns:
-            # 丢包率的对数变换
-            df['log_packet_loss'] = np.log(df['packet_loss_rate'] + 1e-6)
-        
-        if 'bandwidth_mbps' in df.columns:
-            # 带宽分类特征
-            df['bandwidth_category'] = pd.cut(
-                df['bandwidth_mbps'],
-                bins=[0, 10, 50, 100, 200, float('inf')],
-                labels=['very_low', 'low', 'medium', 'high', 'very_high']
-            )
-            # 转换为独热编码
-            bandwidth_dummies = pd.get_dummies(df['bandwidth_category'], prefix='bandwidth')
-            df = pd.concat([df, bandwidth_dummies], axis=1)
-            df.drop('bandwidth_category', axis=1, inplace=True)
-        
-        if 'avg_delay_ms' in df.columns:
-            # 延迟分类特征
-            df['delay_category'] = pd.cut(
-                df['avg_delay_ms'],
-                bins=[0, 20, 50, 100, 200, float('inf')],
-                labels=['very_low', 'low', 'medium', 'high', 'very_high']
-            )
-            # 转换为独热编码
-            delay_dummies = pd.get_dummies(df['delay_category'], prefix='delay')
-            df = pd.concat([df, delay_dummies], axis=1)
-            df.drop('delay_category', axis=1, inplace=True)
-        
-        # 时间特征工程
-        if 'hour_of_day' in df.columns:
-            # 小时的正弦余弦编码 (处理周期性)
-            df['hour_sin'] = np.sin(2 * np.pi * df['hour_of_day'] / 24)
-            df['hour_cos'] = np.cos(2 * np.pi * df['hour_of_day'] / 24)
-        
-        if 'day_of_week' in df.columns:
-            # 周几的正弦余弦编码
-            df['day_sin'] = np.sin(2 * np.pi * df['day_of_week'] / 7)
-            df['day_cos'] = np.cos(2 * np.pi * df['day_of_week'] / 7)
-        
-        # 交互特征
-        if all(col in df.columns for col in ['bandwidth_mbps', 'avg_delay_ms', 'packet_loss_rate']):
-            # 综合网络质量指标
-            df['composite_quality'] = (
-                (df['bandwidth_mbps'] / 100.0) * 0.4 +
-                (1 - df['avg_delay_ms'] / 500.0) * 0.4 +
-                (1 - df['packet_loss_rate'] / 0.1) * 0.2
-            )
-            
-            # 网络稳定性指标
-            df['network_stability'] = (
-                (df['bandwidth_mbps'] / df['bandwidth_mbps'].std()) * 0.3 +
-                (1 / (df['avg_delay_ms'] + 1e-6)) * 0.4 +
-                (1 / (df['packet_loss_rate'] + 1e-6)) * 0.3
-            )
-        
-        # 更新特征列
-        new_features = [col for col in df.columns 
-                       if col not in self.feature_columns + self.target_columns 
-                       and col not in ['scenario_description']]
-        self.feature_columns.extend(new_features)
-        
-        print(f"新增特征: {new_features}")
-        
-        return df
-    
-    def _handle_outliers(self, df: pd.DataFrame) -> pd.DataFrame:
-        """处理异常值"""
-        print("处理异常值...")
-        
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        
-        for col in numeric_cols:
-            if col in self.target_columns:
-                continue  # 不对目标变量处理异常值
-            
-            Q1 = df[col].quantile(0.25)
-            Q3 = df[col].quantile(0.75)
+        # Remove outliers using IQR method
+        for col in self.feature_columns:
+            Q1 = df_clean[col].quantile(0.25)
+            Q3 = df_clean[col].quantile(0.75)
             IQR = Q3 - Q1
             lower_bound = Q1 - 1.5 * IQR
             upper_bound = Q3 + 1.5 * IQR
             
-            # 统计异常值数量
-            outliers = ((df[col] < lower_bound) | (df[col] > upper_bound)).sum()
-            if outliers > 0:
-                print(f"  {col}: 发现 {outliers} 个异常值")
-                
-                # 使用缩尾法处理异常值
-                df[col] = np.clip(df[col], lower_bound, upper_bound)
+            # Cap outliers instead of removing them
+            df_clean[col] = df_clean[col].clip(lower=lower_bound, upper=upper_bound)
         
-        return df
+        # Ensure labels are within valid ranges
+        df_clean["shouldRecommendHotspot"] = df_clean["shouldRecommendHotspot"].clip(0, 1)
+        df_clean["qualityScore"] = df_clean["qualityScore"].clip(0.0, 1.0)
+        df_clean["confidence"] = df_clean["confidence"].clip(0.0, 1.0)
+        
+        return df_clean
     
-    def _scale_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """特征缩放"""
-        print("特征缩放...")
-        
-        # 只对特征列进行缩放，不对目标列缩放
-        feature_df = df[self.feature_columns].copy()
-        
-        for col in self.feature_columns:
-            if col in df.columns:
-                # 根据特征类型选择缩放方法
-                if col in ['bandwidth_mbps', 'avg_delay_ms', 'packet_loss_rate']:
-                    # 使用StandardScaler对主要网络参数
-                    scaler = StandardScaler()
-                    feature_df[col] = scaler.fit_transform(feature_df[[col]]).flatten()
-                    self.scalers[col] = scaler
-                else:
-                    # 对其他特征使用MinMaxScaler
-                    scaler = MinMaxScaler()
-                    feature_df[col] = scaler.fit_transform(feature_df[[col]]).flatten()
-                    self.scalers[col] = scaler
-        
-        # 更新DataFrame中的特征列
-        df[self.feature_columns] = feature_df[self.feature_columns]
-        
-        return df
-    
-    def _split_data(self, df: pd.DataFrame) -> Dict[str, np.ndarray]:
-        """分割数据集"""
-        print("分割数据集...")
-        
-        # 提取特征和目标
-        X = df[self.feature_columns].values
-        y = df[self.target_columns].values
-        
-        # 第一次分割：训练+验证 vs 测试
-        X_train_val, X_test, y_train_val, y_test = train_test_split(
-            X, y, 
-            test_size=self.config['test_size'],
-            random_state=self.config['random_state']
-        )
-        
-        # 第二次分割：训练 vs 验证
-        val_size_adjusted = self.config['validation_size'] / (1 - self.config['test_size'])
-        X_train, X_val, y_train, y_val = train_test_split(
-            X_train_val, y_train_val,
-            test_size=val_size_adjusted,
-            random_state=self.config['random_state']
-        )
-        
-        data_splits = {
-            'X_train': X_train.astype(np.float32),
-            'X_val': X_val.astype(np.float32),
-            'X_test': X_test.astype(np.float32),
-            'y_train': y_train.astype(np.float32),
-            'y_val': y_val.astype(np.float32),
-            'y_test': y_test.astype(np.float32),
-            'feature_names': self.feature_columns,
-            'target_names': self.target_columns
-        }
-        
-        print(f"训练集: {X_train.shape[0]} 样本")
-        print(f"验证集: {X_val.shape[0]} 样本")
-        print(f"测试集: {X_test.shape[0]} 样本")
-        print(f"特征维度: {X_train.shape[1]}")
-        print(f"目标维度: {y_train.shape[1]}")
-        
-        return data_splits
-    
-    def transform_new_data(self, df: pd.DataFrame) -> np.ndarray:
+    def engineer_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        对新数据进行相同的预处理变换
+        Create additional engineered features from raw network data.
         
         Args:
-            df: 新数据DataFrame
+            df: Input DataFrame with basic network features
             
         Returns:
-            变换后的特征数组
+            DataFrame with additional engineered features
         """
-        # 复制数据
-        processed_df = df.copy()
+        df_engineered = df.copy()
         
-        # 应用相同的特征工程
-        if self.config['feature_engineering']:
-            processed_df = self._feature_engineering(processed_df)
+        # Network quality composite score
+        df_engineered["network_quality_index"] = (
+            df_engineered["bandwidthMbps"] / 100.0 * 0.5 +
+            (1 - df_engineered["avgDelayMs"] / 500.0) * 0.3 +
+            (1 - df_engineered["packetLossRate"] / 20.0) * 0.2
+        )
         
-        # 应用相同的特征缩放
-        if self.config['scale_features']:
-            for col in self.feature_columns:
-                if col in processed_df.columns and col in self.scalers:
-                    scaler = self.scalers[col]
-                    processed_df[col] = scaler.transform(processed_df[[col]]).flatten()
+        # Bandwidth-to-delay ratio (higher is better)
+        df_engineered["bandwidth_delay_ratio"] = (
+            df_engineered["bandwidthMbps"] / (df_engineered["avgDelayMs"] + 1)
+        )
         
-        # 提取特征
-        available_features = [col for col in self.feature_columns if col in processed_df.columns]
-        X_new = processed_df[available_features].values.astype(np.float32)
+        # Network stability indicator (lower loss and delay variation)
+        df_engineered["stability_score"] = (
+            1.0 - (df_engineered["packetLossRate"] * df_engineered["avgDelayMs"]) / 10000.0
+        )
         
-        return X_new
+        # Categorical features based on network conditions
+        df_engineered["network_category"] = pd.cut(
+            df_engineered["bandwidthMbps"],
+            bins=[0, 10, 30, 100],
+            labels=["weak", "medium", "strong"]
+        )
+        
+        # Delay category
+        df_engineered["delay_category"] = pd.cut(
+            df_engineered["avgDelayMs"],
+            bins=[0, 50, 150, 500],
+            labels=["low", "medium", "high"]
+        )
+        
+        return df_engineered
     
-    def get_preprocessing_summary(self) -> Dict:
-        """获取预处理摘要"""
-        summary = {
+    def transform_new_data(self, X: np.ndarray) -> np.ndarray:
+        """
+        Transform new data using fitted scaler.
+        
+        Args:
+            X: New feature data to transform
+            
+        Returns:
+            Scaled feature data
+        """
+        if not self.is_fitted:
+            raise ValueError("Preprocessor must be fitted before transforming new data")
+        
+        return self.scaler.transform(X)
+    
+    def get_feature_importance_analysis(self, df: pd.DataFrame) -> Dict:
+        """
+        Analyze feature importance and correlations.
+        
+        Args:
+            df: Input DataFrame with features and labels
+            
+        Returns:
+            Dictionary with feature analysis results
+        """
+        analysis = {}
+        
+        # Correlation with hotspot recommendation
+        correlations = df[self.feature_columns].corrwith(df["shouldRecommendHotspot"])
+        analysis["correlation_with_hotspot"] = correlations.to_dict()
+        
+        # Feature statistics
+        for col in self.feature_columns:
+            analysis[f"{col}_stats"] = {
+                "mean": df[col].mean(),
+                "std": df[col].std(),
+                "min": df[col].min(),
+                "max": df[col].max(),
+                "median": df[col].median()
+            }
+        
+        # Class distribution
+        analysis["class_distribution"] = df["shouldRecommendHotspot"].value_counts().to_dict()
+        
+        return analysis
+    
+    def save_preprocessor(self, filepath: str):
+        """Save fitted preprocessor to file."""
+        import joblib
+        
+        if not self.is_fitted:
+            raise ValueError("Preprocessor must be fitted before saving")
+        
+        joblib.dump({
+            'scaler': self.scaler,
             'feature_columns': self.feature_columns,
-            'target_columns': self.target_columns,
-            'scalers_applied': list(self.scalers.keys()),
-            'config': self.config
-        }
-        return summary
+            'label_columns': self.label_columns,
+            'is_fitted': self.is_fitted
+        }, filepath)
+    
+    def load_preprocessor(self, filepath: str):
+        """Load preprocessor from file."""
+        import joblib
+        
+        preprocessor_data = joblib.load(filepath)
+        self.scaler = preprocessor_data['scaler']
+        self.feature_columns = preprocessor_data['feature_columns']
+        self.label_columns = preprocessor_data['label_columns']
+        self.is_fitted = preprocessor_data['is_fitted']
 
 
+# Example usage
 if __name__ == "__main__":
-    # 测试数据预处理器
-    print("测试数据预处理器...")
+    # Create sample data for testing
+    from generator import DataGenerator
     
-    # 生成示例数据
-    from generator import SmartDataGenerator
-    generator = SmartDataGenerator(seed=42)
-    data = generator.generate_training_data(num_samples=1000)
+    generator = DataGenerator()
+    sample_df = generator.generate_dataset(n_samples=100)
     
-    # 预处理数据
+    # Test preprocessor
     preprocessor = DataPreprocessor()
-    processed_data = preprocessor.preprocess_data(data)
     
-    print("\n预处理摘要:")
-    summary = preprocessor.get_preprocessing_summary()
-    for key, value in summary.items():
-        if key != 'config':
-            print(f"{key}: {value}")
+    # Preprocess data
+    X_train, X_val, X_test, y_train, y_val, y_test, scaler = preprocessor.preprocess_data(sample_df)
     
-    print("\n数据形状:")
-    for key in ['X_train', 'X_val', 'X_test', 'y_train', 'y_val', 'y_test']:
-        print(f"{key}: {processed_data[key].shape}")
+    print("Preprocessing completed successfully!")
+    print(f"Training set: {X_train.shape}")
+    print(f"Validation set: {X_val.shape}")
+    print(f"Test set: {X_test.shape}")
+    
+    # Feature engineering
+    engineered_df = preprocessor.engineer_features(sample_df)
+    print(f"\nEngineered features: {engineed_df.shape}")
+    print("New columns:", [col for col in engineered_df.columns if col not in sample_df.columns])
+    
+    # Feature analysis
+    analysis = preprocessor.get_feature_importance_analysis(sample_df)
+    print(f"\nFeature analysis: {analysis.keys()}")

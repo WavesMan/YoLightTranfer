@@ -5,7 +5,6 @@ import time
 import json
 import threading
 from datetime import datetime
-import pandas as pd
 
 # Ensure project root is on PYTHONPATH so that imports from src/ work
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -87,83 +86,32 @@ class MultiTerminalTrainer:
         except (FileNotFoundError, json.JSONDecodeError):
             return {"total_iterations": 0, "terminals": {}}
 
-def auto_train_iter(n_iters: int = 2, config_path: str = "configs/train_config.json"):
+def auto_train_iter(n_iters: int = 1000, config_path: str = "configs/train_config.json"):
     """多终端多线程自动训练函数"""
     # 初始化多终端训练管理器
     mt_trainer = MultiTerminalTrainer(config_path)
     cfg = mt_trainer.cfg
     
-    print(f"- 启动多终端训练 - 终端ID: {mt_trainer.terminal_id}")
-    print(f"- 模型保存目录: {mt_trainer.terminal_dir}")
+    print(f"🚀 启动多终端训练 - 终端ID: {mt_trainer.terminal_id}")
+    print(f"📁 模型保存目录: {mt_trainer.terminal_dir}")
     
     # 显示当前进度摘要
     progress_summary = mt_trainer.get_progress_summary()
-    print(f"- 当前总进度: {progress_summary['total_iterations']} 次迭代")
-    print(f"- 活跃终端: {len(progress_summary['terminals'])} 个")
+    print(f"📊 当前总进度: {progress_summary['total_iterations']} 次迭代")
+    print(f"💻 活跃终端: {len(progress_summary['terminals'])} 个")
     
     for _ in range(n_iters):
         # 获取下一个可用的迭代编号
         iteration = mt_trainer.get_next_iteration()
         
-        print(f"\n- 开始训练迭代 #{iteration}")
-        print(f"- 开始时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"\n🎯 开始训练迭代 #{iteration}")
+        print(f"⏰ 开始时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         
-        print(f"[{iteration}] 生成增强数据...")
-        # 计算动态不确定性水平
-        if cfg.data.data_generation.dynamic_uncertainty:
-            # 随着迭代增加不确定性，模拟真实世界复杂性
-            progress_ratio = min(iteration / 1000, 1.0)  # 1000次迭代后达到最大不确定性
-            uncertainty_level = cfg.data.data_generation.min_uncertainty + \
-                              (cfg.data.data_generation.max_uncertainty - cfg.data.data_generation.min_uncertainty) * progress_ratio
-        else:
-            uncertainty_level = cfg.data.data_generation.uncertainty_level
-        
-        print(f"   不确定性水平: {uncertainty_level:.2f}")
-        
-        # 使用增强数据生成器
-        generator = DataGenerator(
-            seed=cfg.training.random_seed + iteration,  # 每轮使用不同的种子
-            uncertainty_level=uncertainty_level
-        )
-        
-        # 生成多样化的训练数据
-        base_samples = int(cfg.data.dataset_size * 0.7)
-        boundary_samples = int(cfg.data.dataset_size * cfg.data.data_generation.boundary_sample_ratio)
-        conflict_samples = int(cfg.data.dataset_size * cfg.data.data_generation.conflict_sample_ratio)
-        
-        # 生成基础数据（包含混合场景）
-        base_data = generator.generate_dataset(
-            n_samples=base_samples, 
-            include_mixed_scenarios=cfg.data.data_generation.include_mixed_scenarios
-        )
-        
-        # 生成边界样本
-        if cfg.data.data_generation.include_boundary_samples:
-            boundary_data = generator.generate_decision_boundary_samples(n_samples=boundary_samples)
-        else:
-            boundary_data = pd.DataFrame()
-        
-        # 生成冲突样本
-        if cfg.data.data_generation.include_conflict_samples:
-            conflict_data = generator.generate_conflict_samples(n_samples=conflict_samples)
-        else:
-            conflict_data = pd.DataFrame()
-        
-        # 合并所有数据
-        raw_dataset = pd.concat([base_data, boundary_data, conflict_data], ignore_index=True)
-        
-        # 记录数据复杂性
-        feature_columns = ['bandwidthMbps', 'avgDelayMs', 'packetLossRate']
-        correlations = raw_dataset[feature_columns].corrwith(raw_dataset['shouldRecommendHotspot'])
-        print(f"   特征相关性: 带宽={correlations['bandwidthMbps']:.3f}, " +
-              f"延迟={correlations['avgDelayMs']:.3f}, 丢包率={correlations['packetLossRate']:.3f}")
-        
-        # 统计模糊案例
-        ambiguous_cases = raw_dataset[
-            (raw_dataset['recommendationProbability'] > 0.4) & 
-            (raw_dataset['recommendationProbability'] < 0.6)
-        ]
-        print(f"   模糊案例比例: {len(ambiguous_cases)/len(raw_dataset)*100:.1f}%")
+        print(f"[{iteration}] 生成数据...")
+        # Initialize generator with a fixed seed
+        generator = DataGenerator(seed=cfg.training.random_seed)
+        # Generate dataset (using default scenarios)
+        raw_dataset = generator.generate_dataset(n_samples=cfg.data.dataset_size)
 
         print(f"[{iteration}] 预处理与划分数据集...")
         preprocessor = DataPreprocessor()
@@ -206,13 +154,13 @@ def auto_train_iter(n_iters: int = 2, config_path: str = "configs/train_config.j
         # 使用多终端管理器生成唯一的模型路径
         model_path = mt_trainer.generate_model_path(iteration)
         model.save_model(model_path)
-        print(f"- [{iteration}] 已保存模型: {model_path}")
-        print(f"- [{iteration}] 验证集指标: {best_metrics}")
+        print(f"✅ [{iteration}] 已保存模型: {model_path}")
+        print(f"📈 [{iteration}] 验证集指标: {best_metrics}")
         
         # 更新进度显示
         progress_summary = mt_trainer.get_progress_summary()
-        print(f"- 当前总进度: {progress_summary['total_iterations']} 次迭代")
-        print(f"- 完成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"📊 当前总进度: {progress_summary['total_iterations']} 次迭代")
+        print(f"⏰ 完成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
 if __name__ == "__main__":
     auto_train_iter()

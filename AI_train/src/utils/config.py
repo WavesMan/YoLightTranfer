@@ -1,322 +1,253 @@
 """
-配置管理器
-提供配置文件的加载、验证和管理功能
+Configuration Management for AI Network Quality Analysis
+
+This module handles configuration management for the entire project,
+including model parameters, training settings, and data paths.
 """
 
 import os
 import json
-import yaml
 from typing import Dict, Any, Optional
-from pathlib import Path
+from dataclasses import dataclass, asdict
 
 
-class ConfigManager:
-    """配置管理器类"""
+@dataclass
+class ModelConfig:
+    """Configuration for the neural network model."""
+    input_size: int = 3
+    hidden_sizes: tuple = (64, 32, 16)
+    dropout_rate: float = 0.2
+    use_batch_norm: bool = True
+    activation: str = "relu"
+
+
+@dataclass
+class TrainingConfig:
+    """Configuration for model training."""
+    learning_rate: float = 0.001
+    weight_decay: float = 1e-4
+    batch_size: int = 32
+    epochs: int = 100
+    early_stopping_patience: int = 10
+    validation_split: float = 0.2
+    test_split: float = 0.1
+    random_seed: int = 42
+    optimizer: str = "AdamW"
+    scheduler: str = "ReduceLROnPlateau"
+
+
+@dataclass
+class DataConfig:
+    """Configuration for data handling."""
+    data_dir: str = "data"
+    raw_data_dir: str = "data/raw"
+    processed_data_dir: str = "data/processed"
+    models_dir: str = "models"
+    checkpoint_dir: str = "checkpoints"
+    dataset_size: int = 10000
+    scenario_weights: Dict[str, float] = None
     
-    def __init__(self, config_dir: str = "configs"):
-        """
-        初始化配置管理器
-        
-        Args:
-            config_dir: 配置文件目录
-        """
-        self.config_dir = Path(config_dir)
-        self.configs: Dict[str, Dict[str, Any]] = {}
-        self.default_configs = self._get_default_configs()
-        
-        # 确保配置目录存在
-        self.config_dir.mkdir(exist_ok=True)
-    
-    def _get_default_configs(self) -> Dict[str, Dict[str, Any]]:
-        """获取默认配置"""
-        return {
-            'model': {
-                'input_size': 15,
-                'hidden_sizes': [64, 32, 16],
-                'output_size': 3,
-                'activation': 'relu',
-                'dropout_rate': 0.2,
-                'optimizer': 'adam',
-                'learning_rate': 0.001
-            },
-            'data': {
-                'num_samples': 10000,
-                'use_existing_data': True,
-                'preprocess_config': {
-                    'test_size': 0.2,
-                    'validation_size': 0.1,
-                    'feature_engineering': True,
-                    'normalize': True,
-                    'shuffle': True
-                }
-            },
-            'training': {
-                'epochs': 100,
-                'batch_size': 32,
-                'early_stopping_patience': 10,
-                'learning_rate_scheduler': 'step',
-                'hardware_adaptive': True,
-                'save_checkpoints': True,
-                'checkpoint_interval': 10
-            },
-            'progressive': {
-                'stages': [
-                    {'name': 'warmup', 'epochs': 50, 'data_ratio': 0.1, 'lr': 0.01},
-                    {'name': 'main', 'epochs': 100, 'data_ratio': 0.5, 'lr': 0.001},
-                    {'name': 'refinement', 'epochs': 200, 'data_ratio': 1.0, 'lr': 0.0001}
-                ],
-                'enable_multi_task': True,
-                'task_weights': [0.4, 0.4, 0.2]
-            },
-            'visualization': {
-                'style': 'seaborn',
-                'save_plots': True,
-                'plot_format': 'html',
-                'interactive_plots': True
+    def __post_init__(self):
+        if self.scenario_weights is None:
+            self.scenario_weights = {
+                "strong_network": 0.4,
+                "weak_network": 0.3,
+                "critical_network": 0.3
             }
-        }
+
+
+@dataclass
+class EvaluationConfig:
+    """Configuration for model evaluation."""
+    test_size: int = 1000
+    metrics: tuple = ("accuracy", "precision", "recall", "f1", "auc_roc")
+    confidence_threshold: float = 0.5
+    save_predictions: bool = True
+    plot_results: bool = True
+
+
+class Config:
+    """
+    Main configuration class that combines all configuration sections.
     
-    def load_config(self, config_name: str, config_file: Optional[str] = None) -> Dict[str, Any]:
+    This class provides a centralized way to manage all project settings
+    and supports loading/saving configurations from/to JSON files.
+    """
+    
+    def __init__(self, config_file: Optional[str] = None):
         """
-        加载配置文件
+        Initialize configuration.
         
         Args:
-            config_name: 配置名称
-            config_file: 配置文件路径（可选）
-            
-        Returns:
-            配置字典
+            config_file: Path to JSON configuration file (optional)
         """
-        if config_name in self.configs:
-            return self.configs[config_name]
+        # Initialize default configurations
+        self.model = ModelConfig()
+        self.training = TrainingConfig()
+        self.data = DataConfig()
+        self.evaluation = EvaluationConfig()
         
-        config = self.default_configs.copy()
+        # Additional settings
+        self.project_name: str = "AI Network Quality Analysis"
+        self.version: str = "1.0.0"
+        self.author: str = "YoLightTransfer Team"
+        self.description: str = "AI model for network quality prediction and hotspot recommendation"
         
-        # 如果提供了配置文件，则加载并合并
+        # Load configuration from file if provided
         if config_file and os.path.exists(config_file):
-            try:
-                with open(config_file, 'r', encoding='utf-8') as f:
-                    if config_file.endswith('.json'):
-                        user_config = json.load(f)
-                    elif config_file.endswith(('.yaml', '.yml')):
-                        user_config = yaml.safe_load(f)
-                    else:
-                        # 默认使用JSON
-                        user_config = json.load(f)
-                
-                # 深度合并配置
-                config = self._deep_merge(config, user_config)
-                print(f"配置文件已加载: {config_file}")
-                
-            except Exception as e:
-                print(f"配置文件加载失败: {e}，使用默认配置")
+            self.load(config_file)
         
-        # 保存到缓存
-        self.configs[config_name] = config
-        return config
+        # Create directories
+        self._create_directories()
     
-    def _deep_merge(self, base: Dict[str, Any], update: Dict[str, Any]) -> Dict[str, Any]:
+    def _create_directories(self):
+        """Create necessary directories for the project."""
+        directories = [
+            self.data.data_dir,
+            self.data.raw_data_dir,
+            self.data.processed_data_dir,
+            self.data.models_dir,
+            self.data.checkpoint_dir,
+        ]
+        
+        for directory in directories:
+            os.makedirs(directory, exist_ok=True)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert configuration to dictionary."""
+        return {
+            "project": {
+                "name": self.project_name,
+                "version": self.version,
+                "author": self.author,
+                "description": self.description
+            },
+            "model": asdict(self.model),
+            "training": asdict(self.training),
+            "data": asdict(self.data),
+            "evaluation": asdict(self.evaluation)
+        }
+    
+    def from_dict(self, config_dict: Dict[str, Any]):
+        """Load configuration from dictionary."""
+        # Project settings
+        project_settings = config_dict.get("project", {})
+        self.project_name = project_settings.get("name", self.project_name)
+        self.version = project_settings.get("version", self.version)
+        self.author = project_settings.get("author", self.author)
+        self.description = project_settings.get("description", self.description)
+        
+        # Model configuration
+        model_settings = config_dict.get("model", {})
+        self.model = ModelConfig(**model_settings)
+        
+        # Training configuration
+        training_settings = config_dict.get("training", {})
+        self.training = TrainingConfig(**training_settings)
+        
+        # Data configuration
+        data_settings = config_dict.get("data", {})
+        self.data = DataConfig(**data_settings)
+        
+        # Evaluation configuration
+        evaluation_settings = config_dict.get("evaluation", {})
+        self.evaluation = EvaluationConfig(**evaluation_settings)
+    
+    def save(self, filepath: str):
+        """Save configuration to JSON file."""
+        config_dict = self.to_dict()
+        
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(config_dict, f, indent=2, ensure_ascii=False)
+        
+        print(f"Configuration saved to {filepath}")
+    
+    def load(self, filepath: str):
+        """Load configuration from JSON file."""
+        with open(filepath, 'r', encoding='utf-8') as f:
+            config_dict = json.load(f)
+        
+        self.from_dict(config_dict)
+        print(f"Configuration loaded from {filepath}")
+    
+    def update(self, **kwargs):
         """
-        深度合并两个字典
+        Update configuration settings.
         
         Args:
-            base: 基础字典
-            update: 更新字典
-            
-        Returns:
-            合并后的字典
+            **kwargs: Configuration settings to update
         """
-        result = base.copy()
-        
-        for key, value in update.items():
-            if (key in result and isinstance(result[key], dict) and 
-                isinstance(value, dict)):
-                result[key] = self._deep_merge(result[key], value)
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+            elif hasattr(self.model, key):
+                setattr(self.model, key, value)
+            elif hasattr(self.training, key):
+                setattr(self.training, key, value)
+            elif hasattr(self.data, key):
+                setattr(self.data, key, value)
+            elif hasattr(self.evaluation, key):
+                setattr(self.evaluation, key, value)
             else:
-                result[key] = value
-        
-        return result
+                print(f"Warning: Unknown configuration key '{key}'")
     
-    def get_config(self, config_name: str, section: Optional[str] = None) -> Any:
-        """
-        获取配置
+    def print_summary(self):
+        """Print configuration summary."""
+        print("=" * 60)
+        print("CONFIGURATION SUMMARY")
+        print("=" * 60)
+        print(f"Project: {self.project_name} v{self.version}")
+        print(f"Author: {self.author}")
+        print(f"Description: {self.description}")
+        print()
         
-        Args:
-            config_name: 配置名称
-            section: 配置节（可选）
-            
-        Returns:
-            配置值
-        """
-        if config_name not in self.configs:
-            self.load_config(config_name)
+        print("Model Configuration:")
+        print(f"  Input Size: {self.model.input_size}")
+        print(f"  Hidden Sizes: {self.model.hidden_sizes}")
+        print(f"  Dropout Rate: {self.model.dropout_rate}")
+        print(f"  Batch Normalization: {self.model.use_batch_norm}")
+        print()
         
-        config = self.configs[config_name]
+        print("Training Configuration:")
+        print(f"  Learning Rate: {self.training.learning_rate}")
+        print(f"  Batch Size: {self.training.batch_size}")
+        print(f"  Epochs: {self.training.epochs}")
+        print(f"  Early Stopping Patience: {self.training.early_stopping_patience}")
+        print()
         
-        if section:
-            return config.get(section, {})
+        print("Data Configuration:")
+        print(f"  Dataset Size: {self.data.dataset_size}")
+        print(f"  Scenario Weights: {self.data.scenario_weights}")
+        print(f"  Data Directory: {self.data.data_dir}")
+        print()
         
-        return config
-    
-    def update_config(self, config_name: str, updates: Dict[str, Any]):
-        """
-        更新配置
-        
-        Args:
-            config_name: 配置名称
-            updates: 更新内容
-        """
-        if config_name not in self.configs:
-            self.load_config(config_name)
-        
-        self.configs[config_name] = self._deep_merge(self.configs[config_name], updates)
-    
-    def save_config(self, config_name: str, file_path: str, format: str = 'json'):
-        """
-        保存配置到文件
-        
-        Args:
-            config_name: 配置名称
-            file_path: 文件路径
-            format: 文件格式 ('json' 或 'yaml')
-        """
-        if config_name not in self.configs:
-            print(f"配置 '{config_name}' 不存在")
-            return
-        
-        config = self.configs[config_name]
-        
-        try:
-            with open(file_path, 'w', encoding='utf-8') as f:
-                if format.lower() == 'yaml':
-                    yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
-                else:
-                    json.dump(config, f, indent=2, ensure_ascii=False)
-            
-            print(f"配置已保存到: {file_path}")
-            
-        except Exception as e:
-            print(f"配置保存失败: {e}")
-    
-    def validate_config(self, config_name: str) -> Dict[str, Any]:
-        """
-        验证配置的有效性
-        
-        Args:
-            config_name: 配置名称
-            
-        Returns:
-            验证结果字典
-        """
-        if config_name not in self.configs:
-            self.load_config(config_name)
-        
-        config = self.configs[config_name]
-        validation_results = {
-            'valid': True,
-            'errors': [],
-            'warnings': []
-        }
-        
-        # 验证模型配置
-        if 'model' in config:
-            model_config = config['model']
-            if not isinstance(model_config.get('input_size'), int) or model_config['input_size'] <= 0:
-                validation_results['errors'].append("模型输入尺寸必须为正整数")
-            
-            if not isinstance(model_config.get('output_size'), int) or model_config['output_size'] <= 0:
-                validation_results['errors'].append("模型输出尺寸必须为正整数")
-        
-        # 验证训练配置
-        if 'training' in config:
-            training_config = config['training']
-            if not isinstance(training_config.get('epochs'), int) or training_config['epochs'] <= 0:
-                validation_results['errors'].append("训练轮次必须为正整数")
-            
-            if not isinstance(training_config.get('batch_size'), int) or training_config['batch_size'] <= 0:
-                validation_results['errors'].append("批次大小必须为正整数")
-        
-        # 验证数据配置
-        if 'data' in config:
-            data_config = config['data']
-            if not isinstance(data_config.get('num_samples'), int) or data_config['num_samples'] <= 0:
-                validation_results['warnings'].append("样本数量应为正整数")
-        
-        # 检查错误
-        if validation_results['errors']:
-            validation_results['valid'] = False
-        
-        return validation_results
-    
-    def create_template_config(self, config_type: str = 'training') -> Dict[str, Any]:
-        """
-        创建配置模板
-        
-        Args:
-            config_type: 配置类型 ('training', 'inference', 'evaluation')
-            
-        Returns:
-            配置模板字典
-        """
-        templates = {
-            'training': {
-                'description': '训练配置模板',
-                'model': self.default_configs['model'],
-                'data': self.default_configs['data'],
-                'training': self.default_configs['training'],
-                'progressive': self.default_configs['progressive']
-            },
-            'inference': {
-                'description': '推理配置模板',
-                'model': self.default_configs['model'],
-                'preprocessing': {
-                    'normalize': True,
-                    'feature_scaling': True
-                },
-                'performance': {
-                    'batch_size': 1,
-                    'use_gpu': True
-                }
-            },
-            'evaluation': {
-                'description': '评估配置模板',
-                'metrics': ['mse', 'mae', 'r2'],
-                'cross_validation': {
-                    'folds': 5,
-                    'shuffle': True
-                }
-            }
-        }
-        
-        return templates.get(config_type, templates['training'])
+        print("Evaluation Configuration:")
+        print(f"  Test Size: {self.evaluation.test_size}")
+        print(f"  Confidence Threshold: {self.evaluation.confidence_threshold}")
+        print("=" * 60)
 
 
-# 全局配置管理器实例
-config_manager = ConfigManager()
+# Default configuration instance
+default_config = Config()
 
 
-def get_config_manager() -> ConfigManager:
-    """获取全局配置管理器实例"""
-    return config_manager
-
-
+# Example usage
 if __name__ == "__main__":
-    # 测试配置管理器
-    print("测试配置管理器...")
+    # Create and display default configuration
+    config = Config()
+    config.print_summary()
     
-    manager = ConfigManager()
+    # Save configuration to file
+    config.save("default_config.json")
     
-    # 测试加载默认配置
-    config = manager.load_config('test_config')
-    print("默认配置加载成功")
+    # Load configuration from file
+    new_config = Config("default_config.json")
+    new_config.print_summary()
     
-    # 测试配置验证
-    validation = manager.validate_config('test_config')
-    print(f"配置验证结果: {validation}")
-    
-    # 测试配置更新
-    manager.update_config('test_config', {'training': {'epochs': 200}})
-    updated_config = manager.get_config('test_config', 'training')
-    print(f"更新后的训练配置: {updated_config}")
-    
-    print("配置管理器测试完成!")
+    # Update configuration
+    new_config.update(
+        learning_rate=0.0005,
+        batch_size=64,
+        dataset_size=5000
+    )
+    new_config.print_summary()

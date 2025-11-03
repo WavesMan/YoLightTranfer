@@ -1,118 +1,47 @@
 {
-  "model": {
-    "input_size": 15,
-    "hidden_sizes": [64, 32, 16],
-    "output_size": 3,
-    "activation": "relu",
-    "dropout_rate": 0.2,
-    "model_name": "network_quality_model",
-    "save_format": "onnx"
+  "project": {
+    "name": "AI Network Quality Analysis",
+    "version": "1.0.0",
+    "author": "YoLightTransfer Team",
+    "description": "AI model for network quality prediction and hotspot recommendation"
   },
-  "data": {
-    "num_samples": 10000,
-    "use_existing_data": true,
-    "preprocess_config": {
-      "test_size": 0.2,
-      "validation_size": 0.1,
-      "random_state": 42,
-      "scale_features": true,
-      "feature_engineering": true,
-      "handle_outliers": true
-    },
-    "batch_size": 32,
-    "shuffle": true,
-    "data_augmentation": {
-      "enabled": true,
-      "noise_level": 0.01,
-      "augmentation_ratio": 0.1
-    }
+  "model": {
+    "input_size": 3,
+    "hidden_sizes": [128, 64, 32, 16],
+    "dropout_rate": 0.2,
+    "use_batch_norm": true,
+    "activation": "relu"
   },
   "training": {
     "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "batch_size": 64,
     "epochs": 100,
-    "batch_size": 32,
     "early_stopping_patience": 10,
-    "save_best_model": true,
-    "model_save_dir": "checkpoints",
-    "log_interval": 10,
-    "hardware_adaptive": true,
-    "optimizer": "adam",
-    "loss_function": "mse",
-    "metrics": ["mse", "mae", "r2"]
+    "validation_split": 0.2,
+    "test_split": 0.1,
+    "random_seed": 42,
+    "optimizer": "AdamW",
+    "scheduler": "ReduceLROnPlateau"
   },
-  "progressive": {
-    "stages": [
-      {
-        "name": "warmup",
-        "epochs": 50,
-        "data_ratio": 0.1,
-        "lr": 0.01,
-        "description": "预热阶段：使用小数据集和高学习率快速收敛"
-      },
-      {
-        "name": "main",
-        "epochs": 100,
-        "data_ratio": 0.5,
-        "lr": 0.001,
-        "description": "主要训练阶段：使用中等数据集和标准学习率"
-      },
-      {
-        "name": "refinement",
-        "epochs": 200,
-        "data_ratio": 1.0,
-        "lr": 0.0001,
-        "description": "精炼阶段：使用完整数据集和低学习率进行微调"
-      }
-    ],
-    "enable_multi_task": true,
-    "task_weights": [0.4, 0.4, 0.2],
-    "adaptive_scheduling": true,
-    "stage_transition_threshold": 0.01
-  },
-  "hardware": {
-    "adaptive_training": true,
-    "precision_mode": "auto",
-    "batch_size_optimization": true,
-    "memory_optimization": true,
-    "gpu_acceleration": true
-  },
-  "monitoring": {
-    "save_checkpoints": true,
-    "checkpoint_interval": 10,
-    "log_metrics": true,
-    "performance_monitoring": true,
-    "visualization": true,
-    "report_generation": true
+  "data": {
+    "data_dir": "data",
+    "raw_data_dir": "data/raw",
+    "processed_data_dir": "data/processed",
+    "models_dir": "models",
+    "checkpoint_dir": "checkpoints",
+    "dataset_size": 10000,
+    "scenario_weights": {
+      "strong_network": 0.4,
+      "weak_network": 0.3,
+      "critical_network": 0.3
+    }
   },
   "evaluation": {
-    "test_metrics": ["mse", "mae", "r2", "accuracy", "precision", "recall"],
-    "cross_validation": {
-      "enabled": true,
-      "folds": 5
-    },
-    "generalization_test": true,
-    "confidence_threshold": 0.7
-  },
-  "network_quality": {
-    "targets": {
-      "hotspot_probability": {
-        "weight": 0.4,
-        "description": "热点推荐概率，基于网络质量评估"
-      },
-      "quality_score": {
-        "weight": 0.4,
-        "description": "网络质量评分，综合评估网络性能"
-      },
-      "confidence": {
-        "weight": 0.2,
-        "description": "预测置信度，评估模型预测可靠性"
-      }
-    },
-    "quality_thresholds": {
-      "excellent": 0.9,
-      "good": 0.7,
-      "fair": 0.5,
-      "poor": 0.3
-    }
+    "test_size": 1000,
+    "metrics": ["accuracy", "precision", "recall", "f1", "auc_roc"],
+    "confidence_threshold": 0.5,
+    "save_predictions": true,
+    "plot_results": true
   }
 }

@@ -58,7 +58,7 @@ class ModelTrainer:
         # FP16 mixed precision setup
         if self.use_fp16:
             self.scaler = torch.cuda.amp.GradScaler()
-            print("[OK] FP16 Mixed Precision Training Enabled")
+            print("✅ FP16 Mixed Precision Training Enabled")
         
         # Training history
         self.history = {
@@ -254,7 +254,7 @@ class ModelTrainer:
             progress_bar.set_postfix({
                 'loss': f'{loss.item():.4f}',
                 'avg_loss': f'{total_loss/(batch_idx+1):.4f}',
-                'fp16': '[OK]' if self.use_fp16 else '[OFF]'
+                'fp16': '✓' if self.use_fp16 else '✗'
             })
         
         # Calculate metrics

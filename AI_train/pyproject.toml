@@ -7,29 +7,17 @@ authors = [
 ]
 requires-python = ">=3.8.1"
 dependencies = [
-    # 核心机器学习框架
-    "torch==2.3.1+cu121",  # torch 需带 CUDA 后缀，从 PyTorch 官方源下载
-    "torchvision==0.18.1", # 与 torch 2.3.1 匹配，从清华源下载
-    "torchaudio==2.3.1",   # 从清华源下载，适配 Python 3.12 + CUDA 13.0
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
     "numpy>=1.21.0",
     "pandas>=1.3.0",
-    "pyyaml>=6.0.0",
-
-    # ONNX相关
-    "onnxruntime-gpu>=1.17.0",  # 使用GPU版本
-    "onnx>=1.15.0",
-    
-    # 数据处理和可视化
     "matplotlib>=3.5.0",
-    "plotly>=5.0.0",
     "seaborn>=0.11.0",
     "scikit-learn>=1.0.0",
-    
-    # 系统监控和硬件检测
-    "psutil>=5.9.0",
-    
-    # Windows特定依赖
-    "pywin32>=306; platform_system == 'Windows'",
+    "jupyterlab>=3.0.0",
+    "wandb>=0.15.0",
+    "tqdm>=4.64.0",
+    "torchaudio",
 ]
 
 [project.optional-dependencies]
@@ -44,6 +32,10 @@ dev = [
 requires = ["setuptools>=45.0", "wheel"]
 build-backward-compatible = true
 
+# UV 包管理器配置 - 使用清华源
+[tool.uv.pip]
+index-url = "https://mirrors.nju.edu.cn/pypi/web/simple/"
+
 [tool.black]
 line-length = 88
 target-version = ['py38']
@@ -53,28 +45,3 @@ python_version = "3.8"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
-
-[tool.uv]
-# 配置PyTorch官方源和清华源
-[[tool.uv.index]]
-url = "https://download.pytorch.org/whl/cu121"
-name = "pytorch"
-priority = 1
-
-[[tool.uv.index]]
-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
-name = "tuna"
-priority = 2
-default = true
-
-# 缓存配置
-cache-dir = ".uv_cache"
-python-preference = "system"  # 对应原 [tool.uv.python] 的 preference
-link-mode = "copy"  # 对应原 [tool.uv.install] 的 link-mode
-isolation = true  # 对应原 [tool.uv.build] 的 isolation
-retries = 3  # 对应原 [tool.uv.network] 的 retries
-timeout = 60  # 对应原 [tool.uv.network] 的 timeout
-
-# 配置uv pip接口的镜像源
-[tool.uv.pip]
-index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"

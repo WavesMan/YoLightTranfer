@@ -1,6 +1,13 @@
-# 数据模块
-from .generator import SmartDataGenerator
-from .preprocessor import DataPreprocessor
-from .scaler import FeatureScaler
+"""
+Data collection and preprocessing modules for network quality analysis.
+"""
 
-__all__ = ['SmartDataGenerator', 'DataPreprocessor', 'FeatureScaler']
+from .collector import NetworkDataCollector
+from .generator import DataGenerator
+from .preprocessor import DataPreprocessor
+
+__all__ = [
+    "NetworkDataCollector",
+    "DataGenerator", 
+    "DataPreprocessor",
+]

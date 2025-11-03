@@ -72,20 +72,12 @@ class NetworkQualityModel(nn.Module):
         self._initialize_weights()
     
     def _initialize_weights(self):
-        """Initialize model weights using Xavier initialization with non-zero biases."""
+        """Initialize model weights using Xavier initialization."""
         for module in self.modules():
             if isinstance(module, nn.Linear):
-                # 权重使用Xavier初始化
                 nn.init.xavier_uniform_(module.weight)
-                
-                # 偏置使用小的随机值初始化，而不是0
                 if module.bias is not None:
-                    nn.init.normal_(module.bias, mean=0.0, std=0.01)
-            
-            elif isinstance(module, nn.BatchNorm1d):
-                # BatchNorm的偏置也使用随机初始化
-                if module.bias is not None:
-                    nn.init.normal_(module.bias, mean=0.0, std=0.01)
+                    nn.init.constant_(module.bias, 0)
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
